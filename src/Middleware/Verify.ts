@@ -12,12 +12,14 @@ interface AuthRequest extends Request {
 }
 
 export const verifyToken = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    const token = req.header("x-auth-token");
+    const authHeader = req.header("Authorization");
 
-    if (!token) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
         res.status(401).json({ message: "No token, authorization denied" });
         return;
     }
+
+    const token = authHeader.split(" ")[1];
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
