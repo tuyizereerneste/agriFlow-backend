@@ -25,3 +25,70 @@ enum Role {
   Admin
   Volunteer
 }
+
+model Farmer {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  names     String
+  province  String
+  district  String
+  sector    String
+  cell      String
+  village   String
+  phones    String[]
+  dob       DateTime
+  gender    Gender
+  partner   Partner? @relation("FarmerPartner")
+  children  Child[]
+  lands     Land[]
+  createdAt DateTime @default(now())
+}
+
+model Partner {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  name     String
+  phones   String[]
+  dob      DateTime
+  gender   Gender
+  farmerId String   @unique
+  farmer   Farmer   @relation("FarmerPartner", fields: [farmerId], references: [id])
+}
+
+model Child {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  dob       DateTime
+  gender    Gender
+  farmerId  String
+  farmer    Farmer   @relation(fields: [farmerId], references: [id])
+}
+
+model Land {
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  size       Float
+  latitude   Float
+  longitude  Float
+  ownership  Ownership
+  image      String?
+  farmerId   String
+  farmer     Farmer     @relation(fields: [farmerId], references: [id])
+  nearby     NearbyType[]
+}
+
+enum Gender {
+  Male
+  Female
+}
+
+enum Ownership {
+  Owned
+  Rented
+  Borrowed
+  Other
+}
+
+enum NearbyType {
+  River
+  Road
+  Lake
+  Other
+}

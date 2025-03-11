@@ -5,44 +5,56 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 interface AuthRequest extends Request {
-    user?: {
-        id: string;
-        role: string;
-    };
+  user?: {
+    id: string;
+    role: string;
+  };
 }
 
 export const verifyToken = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-    const authHeader = req.header("Authorization");
+  console.log("verifyToken middleware called");
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        res.status(401).json({ message: "No token, authorization denied" });
-        return;
+  const authHeader = req.header("Authorization");
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    console.error("No token, authorization denied");
+    res.status(401).json({ message: "No token, authorization denied" });
+    return;
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
+    console.log("Token decoded:", decoded);
+
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+
+    if (!user) {
+      console.error("User not found");
+      res.status(401).json({ message: "User not found" });
+      return;
     }
 
-    const token = authHeader.split(" ")[1];
-
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
-        const user = await prisma.user.findUnique({ where: { id: decoded.id } });
-
-        if (!user) {
-            res.status(401).json({ message: "User not found" });
-            return;
-        }
-
-        req.user = { id: decoded.id, role: user.role };
-        next();
-    } catch (error) {
-        res.status(401).json({ message: "Token is not valid" });
-    }
+    req.user = { id: decoded.id, role: user.role };
+    console.log("User verified:", req.user);
+    next();
+  } catch (error) {
+    console.error("Token verification failed:", error);
+    res.status(401).json({ message: "Token is not valid" });
+  }
 };
 
 export const authorizeRole = (role: string) => {
-    return (req: AuthRequest, res: Response, next: NextFunction): void => {
-        if (req.user && req.user.role === role) {
-            next();
-        } else {
-            res.status(403).json({ message: "Access denied. Insufficient permissions." });
-        }
-    };
+  return (req: AuthRequest, res: Response, next: NextFunction): void => {
+    console.log("authorizeRole middleware called for role:", role);
+
+    if (req.user && req.user.role === role) {
+      console.log("Role authorized");
+      next();
+    } else {
+      console.error("Access denied. Insufficient permissions.");
+      res.status(403).json({ message: "Access denied. Insufficient permissions." });
+    }
+  };
 };
