@@ -17,7 +17,7 @@ export const createFarmerSchema = Joi.object({
     })).required(),
     dob: Joi.string().required(),
     gender: Joi.string().valid('Male', 'Female').required(),
-  }).required(), // Ensure that 'farmer' is required
+  }).required(),
   partner: Joi.object({
     name: Joi.string().required(),
     phones: Joi.array()
@@ -38,6 +38,7 @@ export const createFarmerSchema = Joi.object({
       latitude: Joi.number().required(),
       longitude: Joi.number().required(),
       ownership: Joi.string().valid("Owned", "Rented", "Borrowed", "Other").required(),
+      crops: Joi.array().items(Joi.string()).required(),
       nearby: Joi.array().items(Joi.string().valid("River", "Road", "Lake", "Other")).required(),
       image: Joi.string().optional(),
     })
@@ -94,6 +95,7 @@ export const updateFarmerSchema = Joi.object({
         ownership: Joi.string()
           .valid("Owned", "Rented", "Borrowed", "Other")
           .optional(),
+        crops: Joi.array().items(Joi.string()).optional(),
         nearby: Joi.array()
           .items(Joi.string().valid("River", "Road", "Lake", "Other"))
           .optional(),

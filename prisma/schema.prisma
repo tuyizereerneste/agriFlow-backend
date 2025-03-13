@@ -68,6 +68,7 @@ model Land {
   latitude   Float
   longitude  Float
   ownership  Ownership
+  crops      String[]
   image      String?
   farmerId   String
   farmer     Farmer     @relation(fields: [farmerId], references: [id])

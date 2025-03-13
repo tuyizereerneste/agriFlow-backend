@@ -18,6 +18,7 @@ interface LandInput {
   latitude: number;
   longitude: number;
   ownership: "Owned" | "Rented" | "Borrowed" | "Other";
+  crops: string[];
   nearby: ("River" | "Road" | "Lake" | "Other")[];
   image?: string;
 }
@@ -27,75 +28,73 @@ class FarmerController {
     const { error } = createFarmerSchema.validate(req.body);
     if (error) {
       res.status(400).json({ error: error.details[0].message });
-      return;
     }
+
     try {
-  
       const { farmer, partner, children, lands } = req.body;
-  
-      // Check if farmer exists
+
       if (!farmer) {
         res.status(400).json({ error: "Farmer data is missing" });
       }
-  
-      // Create the Farmer (Owner)
-      const createdFarmer = await prisma.farmer.create({
-        data: {
-          names: farmer.names,
-          province: farmer.province,
-          district: farmer.district,
-          sector: farmer.sector,
-          cell: farmer.cell,
-          village: farmer.village,
-          phones: farmer.phones,
-          dob: new Date(farmer.dob),
-          gender: farmer.gender,
-        },
-      });
-  
-      console.log("Farmer created:", createdFarmer);
-  
-      // Create Partner (if provided)
-      if (partner) {
-        await prisma.partner.create({
+
+      // Transaction to ensure atomicity
+      const createdFarmer = await prisma.$transaction(async (tx) => {
+        const newFarmer = await tx.farmer.create({
           data: {
-            name: partner.name,
-            phones: partner.phones,
-            dob: new Date(partner.dob),
-            gender: partner.gender,
-            farmerId: createdFarmer.id,
+            names: farmer.names,
+            province: farmer.province,
+            district: farmer.district,
+            sector: farmer.sector,
+            cell: farmer.cell,
+            village: farmer.village,
+            phones: farmer.phones,
+            dob: new Date(farmer.dob),
+            gender: farmer.gender,
           },
         });
-      }
-  
-      // Create Children (if any)
-      if (children && children.length > 0) {
-        await prisma.child.createMany({
-          data: children.map((child: ChildInput) => ({
-            name: child.name,
-            dob: new Date(child.dob),
-            gender: child.gender,
-            farmerId: createdFarmer.id,
-          })),
-        });
-      }
-  
-      // Create Land Entries (if any)
-      if (lands && lands.length > 0) {
-        await prisma.land.createMany({
-          data: lands.map((land: LandInput) => ({
-            size: land.size,
-            latitude: land.latitude,
-            longitude: land.longitude,
-            ownership: land.ownership,
-            nearby: land.nearby,
-            image: land.image,
-            farmerId: createdFarmer.id,
-          })),
-        });
-      }
-  
-      // Send the response with the created farmer
+
+        // Create Partner
+        if (partner) {
+          await tx.partner.create({
+            data: {
+              name: partner.name,
+              phones: partner.phones,
+              dob: new Date(partner.dob),
+              gender: partner.gender,
+              farmerId: newFarmer.id,
+            },
+          });
+        }
+
+        if (children?.length) {
+          await tx.child.createMany({
+            data: children.map((child: ChildInput) => ({
+              name: child.name,
+              dob: new Date(child.dob),
+              gender: child.gender,
+              farmerId: newFarmer.id,
+            })),
+          });
+        }
+
+        if (lands?.length) {
+          await tx.land.createMany({
+            data: lands.map((land: LandInput) => ({
+              size: land.size,
+              latitude: land.latitude,
+              longitude: land.longitude,
+              ownership: land.ownership,
+              crops: land.crops,
+              nearby: land.nearby,
+              image: land.image,
+              farmerId: newFarmer.id,
+            })),
+          });
+        }
+
+        return newFarmer;
+      });
+
       res.status(201).json({
         message: "Farmer created successfully",
         farmer: createdFarmer,
@@ -110,18 +109,15 @@ class FarmerController {
     try {
       const { page = 1, limit = 10 } = req.query;
   
-      // Convert query params to numbers
       const pageNumber = Number(page);
       const limitNumber = Number(limit);
   
-      // Validate pagination inputs
       if (isNaN(pageNumber) || pageNumber < 1 || isNaN(limitNumber) || limitNumber < 1) {
         res.status(400).json({ message: "Invalid page or limit values" });
       }
   
       const skip = (pageNumber - 1) * limitNumber;
   
-      // Fetch farmers with related data
       const farmers = await prisma.farmer.findMany({
         skip,
         take: limitNumber,
@@ -188,16 +184,14 @@ class FarmerController {
     }
   
     try {
-      const { farmerId } = req.params; // Extract farmerId from req.params
+      const { farmerId } = req.params;
       const { farmer, partner, children, lands } = req.body;
   
-      // Check if farmerId is provided
       if (!farmerId) {
         res.status(400).json({ error: "Farmer ID is missing" });
         return;
       }
-  
-      // Prepare data for updating the farmer
+
       const farmerData: any = {};
       if (farmer) {
         if (farmer.names !== undefined) farmerData.names = farmer.names;
@@ -211,7 +205,6 @@ class FarmerController {
         if (farmer.gender !== undefined) farmerData.gender = farmer.gender;
       }
   
-      // Update the Farmer (Owner)
       const updatedFarmer = await prisma.farmer.update({
         where: { id: farmerId },
         data: farmerData,
@@ -219,7 +212,7 @@ class FarmerController {
   
       console.log("Farmer updated:", updatedFarmer);
   
-      // Update Partner (if provided)
+      // Update or Add Partner
       if (partner) {
         await prisma.partner.upsert({
           where: { farmerId: farmerId },
@@ -299,7 +292,6 @@ class FarmerController {
         }
       }
   
-      // Send the response with the updated farmer
       res.status(200).json({
         message: "Farmer updated successfully",
         farmer: updatedFarmer,
@@ -314,13 +306,11 @@ class FarmerController {
     try {
       const { farmerId } = req.params;
   
-      // Check if farmerId is provided
       if (!farmerId) {
         res.status(400).json({ error: "Farmer ID is missing" });
         return;
       }
   
-      // Start a transaction to ensure atomicity
       const transaction = await prisma.$transaction(async (prisma) => {
         // Delete associated children
         await prisma.child.deleteMany({
