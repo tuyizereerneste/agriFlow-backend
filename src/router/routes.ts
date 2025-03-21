@@ -4,6 +4,7 @@ import FarmerController from '../Controllers/Farmer/FarmerController';
 import { verifyToken } from '../Middleware/Verify';
 import { authorizeRole } from '../Middleware/Verify';
 import SearchController from '../Controllers/Farmer/SearchController';
+import GenerateExcel from '../Controllers/Farmer/generateExcel';
 
 const router = Router();
 
@@ -17,5 +18,9 @@ router.put('/farmer/update-farmer/:farmerId', verifyToken, authorizeRole('Admin'
 router.delete('/farmer/delete-farmer/:farmerId', verifyToken, authorizeRole('Admin'), FarmerController.deleteFarmer);
 
 router.get('/search', verifyToken, authorizeRole('Admin'), SearchController.searchFarmersAndLands);
+
+router.get("/farmers/export-excel", async (req, res) => {
+    await GenerateExcel.generateExcelExport(res);
+});
 
 export default router;
