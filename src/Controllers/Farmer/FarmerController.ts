@@ -99,6 +99,7 @@ class FarmerController {
         message: "Farmer created successfully",
         farmer: createdFarmer,
       });
+      console.log("Farmer created successfully");
     } catch (error) {
       console.error("Error creating farmer:", error);
       res.status(500).json({ message: "Internal Server Error", error });

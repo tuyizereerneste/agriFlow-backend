@@ -5,6 +5,13 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../config/db';
 
+
+interface UserRequest extends Request {
+    user?: {
+        id: string;
+    };
+}
+
 class AuthController {
     static async UserRegister(req: Request, res: Response): Promise<void> {
         const { error } = registerUserSchema.validate(req.body);
@@ -84,6 +91,20 @@ class AuthController {
                 role: user.role
             });
             console.log('User logged in successfully');
+        } catch (error) {
+            res.status(500).json({ message: 'Server error' });
+            console.error(error);
+        }
+    }
+
+    static async UserProfile(req: UserRequest, res: Response): Promise<void> {
+        try {
+            const user = await prisma.user.findUnique({ where: { id: req.user?.id } });
+            if (!user) {
+                res.status(404).json({ message: 'User not found' });
+                return;
+            }
+            res.status(200).json({ message: 'User profile fetched successfully', user });
         } catch (error) {
             res.status(500).json({ message: 'Server error' });
             console.error(error);

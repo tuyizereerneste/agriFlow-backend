@@ -7,18 +7,12 @@ class SearchController {
   static async searchFarmersAndLands(req: Request, res: Response): Promise<void> {
     try {
       const {
-        query,
-        page = 1,
-        limit = 10,
-        ownership,
-        crops,
-        nearby,
-        minSize,
-        maxSize
+        query, page = 1, limit = 10,
+        ownership, crops, nearby,
+        minSize, maxSize
       } = req.query;
 
       const searchTerm = query ? (query as string).toLowerCase() : null;
-
       const farmerWhere: any = {};
       const landWhere: any = {};
 
@@ -31,18 +25,32 @@ class SearchController {
           { sector: { contains: searchTerm, mode: "insensitive" } },
           { cell: { contains: searchTerm, mode: "insensitive" } },
           { village: { contains: searchTerm, mode: "insensitive" } },
-          { gender: { in: ['Male', 'Female'].filter(level => level.toLowerCase().includes(searchTerm)) } },
+          { gender: { in: ['Male', 'Female'].filter(g => g.toLowerCase().includes(searchTerm)) } },
         ];
       }
 
+      let validOwnership: Ownership[] = [];
       if (ownership) {
-        landWhere.ownership = ownership as Ownership;
+        const ownershipArray = Array.isArray(ownership) ? ownership.map(o => o.toString().trim()) : [ownership.toString().trim()];
+        const enumValues = Object.values(Ownership) as string[];
+
+        validOwnership = ownershipArray.filter(o => enumValues.map(e => e.toLowerCase()).includes(o.toLowerCase())) as Ownership[];
+
+        if (validOwnership.length > 0) {
+          farmerWhere.lands = { some: { ownership: { in: validOwnership } } };
+        }
       }
-      if (crops) {
-        landWhere.crops = { hasSome: [crops as string] };
-      }
+
+      let validNearby: NearbyType[] = [];
       if (nearby) {
-        landWhere.nearby = { hasSome: [nearby as string] };
+        const nearbyArray = Array.isArray(nearby) ? nearby.map(n => n.toString().toLowerCase()) : [nearby.toString().toLowerCase()];
+        validNearby = nearbyArray
+          .map((n) => Object.values(NearbyType).find((type: string) => type.toLowerCase() === n))
+          .filter((type): type is NearbyType => type !== undefined);
+
+        if (validNearby.length > 0) {
+          landWhere.nearby = { hasSome: validNearby };
+        }
       }
 
       if (minSize || maxSize) {
@@ -51,22 +59,37 @@ class SearchController {
         if (maxSize) landWhere.size.lte = parseFloat(maxSize as string);
       }
 
-      const skip = (Number(page) - 1) * Number(limit);
+      const pageNumber = isNaN(Number(page)) || Number(page) < 1 ? 1 : Number(page);
+      const limitNumber = isNaN(Number(limit)) || Number(limit) < 1 ? 10 : Number(limit);
+      const skip = (pageNumber - 1) * limitNumber;
 
-      const farmers = await prisma.farmer.findMany({
+      const allFilteredFarmers = await prisma.farmer.findMany({
         where: farmerWhere,
-        include: {
-          lands: {
-            where: landWhere,
-          },
-        },
-        skip,
-        take: Number(limit),
+        include: { lands: { where: landWhere } },
       });
 
-      const filteredFarmers = farmers.filter(farmer => farmer.lands.length > 0);
+      let filteredFarmers = allFilteredFarmers;
+      if (crops) {
+        const cropsArray = Array.isArray(crops) ? crops.map(c => c.toString().toLowerCase()) : [crops.toString().toLowerCase()];
+        filteredFarmers = allFilteredFarmers.filter(farmer =>
+          farmer.lands.some(land =>
+            land.crops.some(crop => cropsArray.includes(crop.toLowerCase()))
+          )
+        );
+      }
+
+      if (nearby || ownership) {
+        filteredFarmers = filteredFarmers.filter(farmer =>
+          farmer.lands.some(land => {
+            const matchesNearby = !validNearby.length || validNearby.some(type => land.nearby.includes(type));
+            const matchesOwnership = !validOwnership.length || validOwnership.includes(land.ownership);
+            return matchesNearby && matchesOwnership;
+          })
+        );
+      }
 
       const totalFarmers = filteredFarmers.length;
+      const paginatedFarmers = filteredFarmers.slice(skip, skip + limitNumber);
 
       if (totalFarmers === 0) {
         res.status(404).json({ message: "No matching results found" });
@@ -75,11 +98,12 @@ class SearchController {
 
       res.status(200).json({
         message: "Farmers and lands fetched successfully",
-        farmers: filteredFarmers,
+        farmers: paginatedFarmers,
         totalFarmers,
-        currentPage: Number(page),
-        totalPages: Math.ceil(totalFarmers / Number(limit)),
+        currentPage: pageNumber,
+        totalPages: Math.ceil(totalFarmers / limitNumber),
       });
+
     } catch (error) {
       console.error("Search farmers and lands error:", error);
       res.status(500).json({ message: "Server error" });
