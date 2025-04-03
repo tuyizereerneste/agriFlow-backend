@@ -2,7 +2,6 @@ import ExcelJS from 'exceljs';
 import { Response } from 'express';
 import { prisma } from '../../config/db';
 
-
 class GenerateExcel {
     static formatDate(date: Date): string {
         const d = new Date(date);
@@ -17,16 +16,26 @@ class GenerateExcel {
             const farmers = await prisma.farmer.findMany({
                 include: {
                     partner: true,
+                    location: true,
                     children: true,
-                    lands: true,
+                    lands: {
+                        include: {
+                            locations: {
+                                include: {
+                                    location: true,
+                                },
+                            },
+                        },
+                    },
                 },
             });
-    
+
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Farmers');
-    
+
             worksheet.columns = [
                 { header: 'ID', key: 'id', width: 12 },
+                { header: 'Farmer Number', key: 'farmerNumber', width: 15 },
                 { header: 'Names', key: 'names', width: 25 },
                 { header: 'Province', key: 'province', width: 20 },
                 { header: 'District', key: 'district', width: 20 },
@@ -44,36 +53,44 @@ class GenerateExcel {
                 { header: 'Child Date of Birth', key: 'childDob', width: 18 },
                 { header: 'Child Gender', key: 'childGender', width: 15 },
                 { header: 'Land Size (m²)', key: 'landSize', width: 15 },
+                { header: 'Land Province', key: 'landProvince', width: 20 },
+                { header: 'Land District', key: 'landDistrict', width: 20 },
+                { header: 'Land Sector', key: 'landSector', width: 20 },
+                { header: 'Land Cell', key: 'landCell', width: 15 },
+                { header: 'Land Village', key: 'landVillage', width: 20 },
                 { header: 'Land Latitude', key: 'landLatitude', width: 15 },
                 { header: 'Land Longitude', key: 'landLongitude', width: 15 },
                 { header: 'Land Ownership', key: 'landOwnership', width: 15 },
                 { header: 'Land Crops', key: 'landCrops', width: 30 },
                 { header: 'Land Nearby', key: 'landNearby', width: 25 }
             ];
-    
+
             farmers.forEach((farmer) => {
                 const partnerName = farmer.partner?.name || 'N/A';
                 const partnerPhones = farmer.partner?.phones.join(', ') || 'N/A';
                 const partnerDob = farmer.partner?.dob ? GenerateExcel.formatDate(farmer.partner.dob) : 'N/A';
                 const partnerGender = farmer.partner?.gender || 'N/A';
-    
+
+                const farmerLocation = farmer.location[0] || {};
                 const children = farmer.children || [];
                 const lands = farmer.lands || [];
-    
+
                 const maxRows = Math.max(children.length, lands.length, 1);
-    
+
                 for (let i = 0; i < maxRows; i++) {
                     const child = children[i] || { name: '', dob: '', gender: '' };
-                    const land = lands[i] || { size: '', latitude: '', longitude: '', ownership: '', crops: [], nearby: [] };
-    
+                    const land = lands[i] || { size: '', ownership: '', crops: [], nearby: [], locations: [] };
+                    const landLocation = land.locations[0]?.location || {};
+
                     worksheet.addRow({
                         id: i === 0 ? farmer.id : '',
+                        farmerNumber: i === 0 ? farmer.farmerNumber : '',
                         names: i === 0 ? farmer.names : '',
-                        province: i === 0 ? farmer.province : '',
-                        district: i === 0 ? farmer.district : '',
-                        sector: i === 0 ? farmer.sector : '',
-                        cell: i === 0 ? farmer.cell : '',
-                        village: i === 0 ? farmer.village : '',
+                        province: i === 0 ? farmerLocation.province : '',
+                        district: i === 0 ? farmerLocation.district : '',
+                        sector: i === 0 ? farmerLocation.sector : '',
+                        cell: i === 0 ? farmerLocation.cell : '',
+                        village: i === 0 ? farmerLocation.village : '',
                         phones: i === 0 ? farmer.phones.join(', ') : '',
                         dob: i === 0 ? GenerateExcel.formatDate(farmer.dob) : '',
                         gender: i === 0 ? farmer.gender : '',
@@ -85,18 +102,23 @@ class GenerateExcel {
                         childDob: child.dob ? GenerateExcel.formatDate(child.dob) : '',
                         childGender: child.gender || '',
                         landSize: land.size || '',
-                        landLatitude: land.latitude || '',
-                        landLongitude: land.longitude || '',
+                        landProvince: landLocation.province || '',
+                        landDistrict: landLocation.district || '',
+                        landSector: landLocation.sector || '',
+                        landCell: landLocation.cell || '',
+                        landVillage: landLocation.village || '',
+                        landLatitude: landLocation.latitude || '',
+                        landLongitude: landLocation.longitude || '',
                         landOwnership: land.ownership || '',
                         landCrops: land.crops.length ? land.crops.join(', ') : '',
                         landNearby: land.nearby.length ? land.nearby.join(', ') : ''
                     });
                 }
             });
-    
+
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', 'attachment; filename=farmers.xlsx');
-    
+
             await workbook.xlsx.write(res);
             res.end();
         } catch (error) {
@@ -104,7 +126,6 @@ class GenerateExcel {
             res.status(500).send('Internal Server Error');
         }
     }
-    
 }
 
 export default GenerateExcel;

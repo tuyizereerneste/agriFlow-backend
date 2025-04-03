@@ -27,20 +27,32 @@ enum Role {
 }
 
 model Farmer {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  names     String
-  province  String
-  district  String
-  sector    String
-  cell      String
-  village   String
-  phones    String[]
-  dob       DateTime
-  gender    Gender
-  partner   Partner? @relation("FarmerPartner")
-  children  Child[]
-  lands     Land[]
-  createdAt DateTime @default(now())
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  farmerNumber String   @unique
+  names        String
+  phones       String[]
+  dob          DateTime
+  gender       Gender
+  qrCode       String   @unique @default(uuid())
+  location     Location[]
+  partner      Partner?  @relation("FarmerPartner")
+  children     Child[]
+  lands        Land[]
+  createdAt    DateTime  @default(now())
+}
+
+model Location {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  province   String
+  district   String
+  sector     String
+  cell       String
+  village    String
+  latitude   Float?
+  longitude  Float?
+  farmer     Farmer?  @relation(fields: [farmerId], references: [id])
+  farmerId   String?
+  lands      LandLocation[]
 }
 
 model Partner {
@@ -62,16 +74,22 @@ model Child {
   farmer    Farmer   @relation(fields: [farmerId], references: [id])
 }
 
+model LandLocation {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  landId     String
+  locationId String
+  land       Land     @relation(fields: [landId], references: [id])
+  location   Location @relation(fields: [locationId], references: [id])
+}
+
 model Land {
-  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
   size       Float
-  latitude   Float
-  longitude  Float
   ownership  Ownership
   crops      String[]
-  image      String?
   farmerId   String
-  farmer     Farmer     @relation(fields: [farmerId], references: [id])
+  farmer     Farmer   @relation(fields: [farmerId], references: [id])
+  locations  LandLocation[] // Define the relation to LandLocation
   nearby     NearbyType[]
 }
 

@@ -4,8 +4,8 @@ import FarmerController from '../Controllers/Farmer/FarmerController';
 import { verifyToken } from '../Middleware/Verify';
 import { authorizeRole } from '../Middleware/Verify';
 import SearchController from '../Controllers/Farmer/SearchController';
+import QrCodeController from '../Controllers/Farmer/QrCodeController';
 import GenerateExcel from '../Controllers/Farmer/generateExcel';
-import OwnershipController from '../Controllers/Farmer/ownership';
 
 const router = Router();
 
@@ -16,15 +16,15 @@ router.get('/auth/me', verifyToken, authorizeRole('Admin'), AuthController.UserP
 router.post('/farmer/create-farmer', verifyToken, authorizeRole('Admin'), FarmerController.createFarmer);
 router.get('/farmer/all-farmers', verifyToken, authorizeRole('Admin'), FarmerController.getAllFarmers);
 router.get('/farmer/get-farmer/:id', FarmerController.getFarmerById);
-router.put('/farmer/update-farmer/:farmerId', verifyToken, authorizeRole('Admin'), FarmerController.updateFarmer);
+//router.put('/farmer/update-farmer/:farmerId', verifyToken, authorizeRole('Admin'), FarmerController.updateFarmer);
 router.delete('/farmer/delete-farmer/:farmerId', verifyToken, authorizeRole('Admin'), FarmerController.deleteFarmer);
 
-router.get('/search', verifyToken, authorizeRole('Admin'), SearchController.searchFarmersAndLands);
+router.get('/search', verifyToken, authorizeRole('Admin'), SearchController.searchFarmers);
 
 router.get("/farmers/export-excel", async (req, res) => {
     await GenerateExcel.generateExcelExport(res);
 });
 
-router.get('/filter', OwnershipController.getFarmersByFilters);
+router.get('/farmer/generate-qrcode/:farmerId', verifyToken, authorizeRole('Admin'), QrCodeController.generateQrCode);
 
 export default router;

@@ -5,106 +5,144 @@ import { updateFarmerSchema } from "../../Validations/FarmerValidation";
 
 const prisma = new PrismaClient();
 
+
 interface ChildInput {
-  id?: string;
   name: string;
   dob: string;
   gender: "Male" | "Female";
 }
 
 interface LandInput {
-  id?: string;
   size: number;
-  latitude: number;
-  longitude: number;
   ownership: "Owned" | "Rented" | "Borrowed" | "Other";
   crops: string[];
-  nearby: ("River" | "Road" | "Lake" | "Other")[];
+  nearby: string[];
   image?: string;
 }
-
 class FarmerController {
   static async createFarmer(req: Request, res: Response): Promise<void> {
     const { error } = createFarmerSchema.validate(req.body);
     if (error) {
-      res.status(400).json({ error: error.details[0].message });
+        res.status(400).json({ error: error.details[0].message });
+        return;
     }
+
+    // Generate the next farmer number
+    const lastFarmer = await prisma.farmer.findFirst({
+        orderBy: { farmerNumber: "desc" },
+        select: { farmerNumber: true },
+    });
+
+    const nextFarmerNumber = lastFarmer ? (parseInt(lastFarmer.farmerNumber) + 1).toString().padStart(4, '0') : "0001";
 
     try {
-      const { farmer, partner, children, lands } = req.body;
+        const { farmer, location, partner, children, lands } = req.body;
 
-      if (!farmer) {
-        res.status(400).json({ error: "Farmer data is missing" });
-      }
+        if (!farmer) {
+            res.status(400).json({ error: "Farmer data is missing" });
+            return;
+        }
 
-      // Transaction to ensure atomicity
-      const createdFarmer = await prisma.$transaction(async (tx) => {
-        const newFarmer = await tx.farmer.create({
-          data: {
-            names: farmer.names,
-            province: farmer.province,
-            district: farmer.district,
-            sector: farmer.sector,
-            cell: farmer.cell,
-            village: farmer.village,
-            phones: farmer.phones,
-            dob: new Date(farmer.dob),
-            gender: farmer.gender,
-          },
+        // Transaction to ensure atomicity
+        const createdFarmer = await prisma.$transaction(async (tx) => {
+            const newFarmer = await tx.farmer.create({
+                data: {
+                    farmerNumber: nextFarmerNumber,
+                    names: farmer.names,
+                    phones: farmer.phones,
+                    dob: new Date(farmer.dob),
+                    gender: farmer.gender,
+                },
+            });
+
+            // Save Farmer's Primary Location
+            if (location) {
+                await tx.location.create({
+                    data: {
+                        province: location.province,
+                        district: location.district,
+                        sector: location.sector,
+                        cell: location.cell,
+                        village: location.village,
+                        farmerId: newFarmer.id, // Associate with the farmer
+                    },
+                });
+            }
+
+            // Save Partner separately
+            if (partner) {
+                await tx.partner.create({
+                    data: {
+                        name: partner.name,
+                        phones: partner.phones,
+                        dob: new Date(partner.dob),
+                        gender: partner.gender,
+                        farmerId: newFarmer.id,
+                    },
+                });
+            }
+
+            if (children?.length) {
+                await tx.child.createMany({
+                    data: children.map((child: ChildInput) => ({
+                        name: child.name,
+                        dob: new Date(child.dob),
+                        gender: child.gender,
+                        farmerId: newFarmer.id,
+                    })),
+                });
+            }
+
+            if (lands?.length) {
+                for (const land of lands) {
+                    // Create a location for each land
+                    const landLocation = await tx.location.create({
+                        data: {
+                            province: land.location.province,
+                            district: land.location.district,
+                            sector: land.location.sector,
+                            cell: land.location.cell,
+                            village: land.location.village,
+                            latitude: land.location.latitude,
+                            longitude: land.location.longitude,
+                        },
+                    });
+
+                    // Create the land
+                    const newLand = await tx.land.create({
+                        data: {
+                            size: land.size,
+                            ownership: land.ownership,
+                            crops: land.crops,
+                            nearby: land.nearby,
+                            farmerId: newFarmer.id,
+                        },
+                    });
+
+                    // Link the land to its location using LandLocation
+                    await tx.landLocation.create({
+                        data: {
+                            landId: newLand.id,
+                            locationId: landLocation.id,
+                        },
+                    });
+                }
+            }
+
+            return newFarmer;
         });
 
-        // Create Partner
-        if (partner) {
-          await tx.partner.create({
-            data: {
-              name: partner.name,
-              phones: partner.phones,
-              dob: new Date(partner.dob),
-              gender: partner.gender,
-              farmerId: newFarmer.id,
-            },
-          });
-        }
-
-        if (children?.length) {
-          await tx.child.createMany({
-            data: children.map((child: ChildInput) => ({
-              name: child.name,
-              dob: new Date(child.dob),
-              gender: child.gender,
-              farmerId: newFarmer.id,
-            })),
-          });
-        }
-
-        if (lands?.length) {
-          await tx.land.createMany({
-            data: lands.map((land: LandInput) => ({
-              size: land.size,
-              latitude: land.latitude,
-              longitude: land.longitude,
-              ownership: land.ownership,
-              crops: land.crops,
-              nearby: land.nearby,
-              image: land.image,
-              farmerId: newFarmer.id,
-            })),
-          });
-        }
-
-        return newFarmer;
-      });
-
-      res.status(201).json({
-        message: "Farmer created successfully",
-        farmer: createdFarmer,
-      });
-      console.log("Farmer created successfully");
+        res.status(201).json({
+            message: "Farmer created successfully",
+            farmer: createdFarmer,
+        });
+        console.log("Farmer created successfully");
     } catch (error) {
-      console.error("Error creating farmer:", error);
-      res.status(500).json({ message: "Internal Server Error", error });
+        console.error("Error creating farmer:", error);
+        res.status(500).json({ message: "Internal Server Error", error });
     }
-  }
+}
+
 
   static async getAllFarmers(req: Request, res: Response): Promise<void> {
     try {
@@ -123,6 +161,15 @@ class FarmerController {
         skip,
         take: limitNumber,
         include: {
+          location: {
+            select: {
+              province: true,
+              district: true,
+              sector: true,
+              cell: true,
+              village: true,
+            },
+          },
           partner: {
             select: {
               name: true,
@@ -157,27 +204,38 @@ class FarmerController {
 
   static async getFarmerById(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
-      const farmer = await prisma.farmer.findUnique({
-        where: { id },
-        include: {
-          partner: true,
-          children: true,
-          lands: true,
-        },
-      });
-  
-      if (!farmer) {
-        res.status(404).json({ message: "Farmer not found" });
-      } else {
-        res.status(200).json(farmer);
-      }
-    } catch (error) {
-      res.status(500).json({ message: "Error fetching farmer", error });
-    }
-  }
+        const { id } = req.params;
 
-  static async updateFarmer(req: Request, res: Response): Promise<void> {
+        const farmer = await prisma.farmer.findUnique({
+            where: { id },
+            include: {
+                partner: true,
+                location: true,
+                children: true,
+                lands: {
+                    include: {
+                        locations: {
+                            include: {
+                                location: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!farmer) {
+            res.status(404).json({ message: "Farmer not found" });
+        } else {
+            res.status(200).json(farmer);
+        }
+    } catch (error) {
+        console.error("Error fetching farmer:", error);
+        res.status(500).json({ message: "Error fetching farmer", error });
+    }
+}
+
+  /**static async updateFarmer(req: Request, res: Response): Promise<void> {
     const { error } = updateFarmerSchema.validate(req.body);
     if (error) {
       res.status(400).json({ error: error.details[0].message });
@@ -301,7 +359,7 @@ class FarmerController {
       console.error("Error updating farmer:", error);
       res.status(500).json({ message: "Internal Server Error", error });
     }
-  }
+  } **/
   
   static async deleteFarmer(req: Request, res: Response): Promise<void> {
     try {
