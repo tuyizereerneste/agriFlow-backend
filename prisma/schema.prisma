@@ -27,19 +27,22 @@ enum Role {
 }
 
 model Farmer {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  farmerNumber String   @unique
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  farmerNumber String     @unique
   names        String
   phones       String[]
   dob          DateTime
   gender       Gender
-  qrCode       String   @unique @default(uuid())
+  qrCode       String     @unique @default(uuid())
   location     Location[]
-  partner      Partner?  @relation("FarmerPartner")
+  partner      Partner?   @relation("FarmerPartner")
   children     Child[]
   lands        Land[]
-  createdAt    DateTime  @default(now())
+  enrollments  ProjectEnrollment[]
+  attendances  Attendance[]
+  createdAt    DateTime   @default(now())
 }
+
 
 model Location {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -91,6 +94,7 @@ model Land {
   farmer     Farmer   @relation(fields: [farmerId], references: [id])
   locations  LandLocation[] // Define the relation to LandLocation
   nearby     NearbyType[]
+  targetLinks  TargetPracticeLand[]
 }
 
 enum Gender {
@@ -111,3 +115,75 @@ enum NearbyType {
   Lake
   Other
 }
+
+
+model Project {
+  id             String             @id @default(auto()) @map("_id") @db.ObjectId
+  title          String
+  description    String
+  owner          String             // e.g., ABC Bank
+  startDate      DateTime
+  endDate        DateTime
+  objectives     String
+  targetPractices TargetPractice[]   // Related practices
+  farmers        ProjectEnrollment[]
+  createdAt      DateTime           @default(now())
+}
+
+model ProjectEnrollment {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectId  String
+  farmerId   String
+  createdAt  DateTime @default(now())
+  project    Project  @relation(fields: [projectId], references: [id])
+  farmer     Farmer   @relation(fields: [farmerId], references: [id])
+}
+
+
+model TargetPractice {
+  id               String               @id @default(auto()) @map("_id") @db.ObjectId
+  title            String               // e.g., Agroforestry
+  initialSituation String               // Context before intervention
+  projectId        String
+  project          Project              @relation(fields: [projectId], references: [id])
+  activities       Activity[]
+  lands            TargetPracticeLand[] // Lands used in this practice
+}
+
+model Activity {
+  id               String        @id @default(auto()) @map("_id") @db.ObjectId
+  targetPracticeId String
+  title            String
+  description      String
+  startDate        DateTime
+  endDate          DateTime
+  targetPractice   TargetPractice @relation(fields: [targetPracticeId], references: [id])
+  attendances      Attendance[]
+}
+
+
+model TargetPracticeLand {
+  id               String           @id @default(auto()) @map("_id") @db.ObjectId
+  targetPracticeId String
+  landId           String
+  targetPractice   TargetPractice @relation(fields: [targetPracticeId], references: [id])
+  land             Land           @relation(fields: [landId], references: [id])
+}
+
+model Attendance {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  activityId String
+  farmerId   String
+  photos     String[]
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  activity   Activity @relation(fields: [activityId], references: [id])
+  farmer     Farmer   @relation(fields: [farmerId], references: [id])
+}
+
+
+
+
+
+

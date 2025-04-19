@@ -6,6 +6,9 @@ import { authorizeRole } from '../Middleware/Verify';
 import SearchController from '../Controllers/Farmer/SearchController';
 import QrCodeController from '../Controllers/Farmer/QrCodeController';
 import GenerateExcel from '../Controllers/Farmer/generateExcel';
+import ProjectController from '../Controllers/Project-Management/Project/ProjectController';
+import EnrollmentController from '../Controllers/Project-Management/Enrollments/EnrollmentController';
+import ActivityController from '../Controllers/Project-Management/Activities/ActivityController';
 
 const router = Router();
 
@@ -26,5 +29,12 @@ router.get("/farmers/export-excel", async (req, res) => {
 });
 
 router.get('/farmer/generate-qrcode/:farmerId', verifyToken, authorizeRole('Admin'), QrCodeController.generateQrCode);
+
+router.post('/project/create-project', verifyToken, authorizeRole('Admin'), ProjectController.createProject);
+router.get('/project/get-project/:id', verifyToken, authorizeRole('Admin'), ProjectController.getProjectById);
+router.get('/projest/project-details/:id', verifyToken, authorizeRole('Admin'), ProjectController.getProjectDetails);
+
+router.post('/project/enroll-farmer', verifyToken, authorizeRole('Admin'), EnrollmentController.enrollFarmerInProject);
+router.post('/project/create-activity', verifyToken, authorizeRole('Admin'), ActivityController.createActivity);
 
 export default router;

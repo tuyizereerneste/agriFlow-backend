@@ -12,13 +12,6 @@ interface ChildInput {
   gender: "Male" | "Female";
 }
 
-interface LandInput {
-  size: number;
-  ownership: "Owned" | "Rented" | "Borrowed" | "Other";
-  crops: string[];
-  nearby: string[];
-  image?: string;
-}
 class FarmerController {
   static async createFarmer(req: Request, res: Response): Promise<void> {
     const { error } = createFarmerSchema.validate(req.body);
