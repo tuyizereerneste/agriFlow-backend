@@ -9,6 +9,10 @@ import GenerateExcel from '../Controllers/Farmer/generateExcel';
 import ProjectController from '../Controllers/Project-Management/Project/ProjectController';
 import EnrollmentController from '../Controllers/Project-Management/Enrollments/EnrollmentController';
 import ActivityController from '../Controllers/Project-Management/Activities/ActivityController';
+import { attendanceUpload } from '../Middleware/uploads';
+import AttendanceController from '../Controllers/Project-Management/Attendance/AttendanceController';
+import ProjectSearchController from '../Controllers/Project-Management/Project/SearchProject';
+import GenerateProjectExcel from '../Controllers/Project-Management/Project/generateProjectExcel';
 
 const router = Router();
 
@@ -21,20 +25,28 @@ router.get('/farmer/all-farmers', verifyToken, authorizeRole('Admin'), FarmerCon
 router.get('/farmer/get-farmer/:id', FarmerController.getFarmerById);
 //router.put('/farmer/update-farmer/:farmerId', verifyToken, authorizeRole('Admin'), FarmerController.updateFarmer);
 router.delete('/farmer/delete-farmer/:farmerId', verifyToken, authorizeRole('Admin'), FarmerController.deleteFarmer);
+router.get('/farmer/farmer-land/:farmerId', verifyToken, authorizeRole('Admin'), FarmerController.getFarmerLands);
 
 router.get('/search', verifyToken, authorizeRole('Admin'), SearchController.searchFarmers);
+router.get('/project/search', verifyToken, authorizeRole('Admin'), ProjectSearchController.searchProjects);
+router.get('/project/project-practices/:projectId', verifyToken, authorizeRole('Admin'), ProjectController.getProjectPractices);
 
 router.get("/farmers/export-excel", async (req, res) => {
     await GenerateExcel.generateExcelExport(res);
+});
+router.get('/projects/export-excel', async (req, res) => {
+    await GenerateProjectExcel.generateExcelExport(res);
 });
 
 router.get('/farmer/generate-qrcode/:farmerId', verifyToken, authorizeRole('Admin'), QrCodeController.generateQrCode);
 
 router.post('/project/create-project', verifyToken, authorizeRole('Admin'), ProjectController.createProject);
-router.get('/project/get-project/:id', verifyToken, authorizeRole('Admin'), ProjectController.getProjectById);
-router.get('/projest/project-details/:id', verifyToken, authorizeRole('Admin'), ProjectController.getProjectDetails);
+router.get('/project/all-projects', verifyToken, authorizeRole('Admin'), ProjectController.getAllProjects);
+router.get('/project/get-project/:projectId', verifyToken, authorizeRole('Admin'), ProjectController.getProjectById);
+//router.get('/projest/project-details/:id', verifyToken, authorizeRole('Admin'), ProjectController.getProjectById);
 
 router.post('/project/enroll-farmer', verifyToken, authorizeRole('Admin'), EnrollmentController.enrollFarmerInProject);
-router.post('/project/create-activity', verifyToken, authorizeRole('Admin'), ActivityController.createActivity);
+
+router.post('/project/attendance', verifyToken, authorizeRole('Admin'), attendanceUpload.array("photos"), AttendanceController.registerAttendance);
 
 export default router;
