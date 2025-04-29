@@ -14,16 +14,33 @@ generator client {
 }
 
 model User {
-  id    String @id @default(auto()) @map("_id") @db.ObjectId
-  name  String
-  email String @unique
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  name     String
+  email    String   @unique
   password String
-  role   String
+  role     Role?
+  type     UserType
+  company  Company?
+  location Location[]
 }
 
 enum Role {
   Admin
   Volunteer
+}
+
+enum UserType {
+  user
+  company
+}
+
+model Company {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  logo     String?
+  tin      String
+  userId   String   @unique
+  user     User     @relation(fields: [userId], references: [id])
+  location Location[]
 }
 
 model Farmer {
@@ -56,6 +73,10 @@ model Location {
   farmer     Farmer?  @relation(fields: [farmerId], references: [id])
   farmerId   String?
   lands      LandLocation[]
+  company    Company? @relation(fields: [companyId], references: [id])
+  companyId  String?
+  User       User?    @relation(fields: [userId], references: [id])
+  userId     String?
 }
 
 model Partner {

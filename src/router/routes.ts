@@ -9,10 +9,12 @@ import GenerateExcel from '../Controllers/Farmer/generateExcel';
 import ProjectController from '../Controllers/Project-Management/Project/ProjectController';
 import EnrollmentController from '../Controllers/Project-Management/Enrollments/EnrollmentController';
 import ActivityController from '../Controllers/Project-Management/Activities/ActivityController';
-import { attendanceUpload } from '../Middleware/uploads';
+import { attendanceUpload, logoUpload } from '../Middleware/uploads';
 import AttendanceController from '../Controllers/Project-Management/Attendance/AttendanceController';
 import ProjectSearchController from '../Controllers/Project-Management/Project/SearchProject';
 import GenerateProjectExcel from '../Controllers/Project-Management/Project/generateProjectExcel';
+import CompanyController from '../Controllers/Company/CampanyController';
+import VolunteerController from '../Controllers/VolunteerController/VolunteerController';
 
 const router = Router();
 
@@ -48,5 +50,18 @@ router.get('/project/get-project/:projectId', verifyToken, authorizeRole('Admin'
 router.post('/project/enroll-farmer', verifyToken, authorizeRole('Admin'), EnrollmentController.enrollFarmerInProject);
 
 router.post('/project/attendance', verifyToken, authorizeRole('Admin'), attendanceUpload.array("photos"), AttendanceController.registerAttendance);
+
+// Company routes
+
+router.post('/company/register-company', verifyToken, authorizeRole("Admin"), logoUpload.single('logo'), CompanyController.createCompany);
+router.get('/company/get-all-companies', verifyToken, authorizeRole("Admin"), CompanyController.getAllCompanies);
+router.get('/company/get-company/:id', verifyToken, authorizeRole("Admin"), CompanyController.getCompanyById);
+router.delete('/company/delete-company/:id', verifyToken, authorizeRole("Admin"), CompanyController.deleteCompany);
+
+// Volunteer routes
+router.post('/volunteer/register-volunteer', verifyToken, authorizeRole("Admin"), VolunteerController.createVolunteer);
+router.get('/volunteer/get-all-volunteers', verifyToken, authorizeRole("Admin"), VolunteerController.getAllVolunteers);
+router.get('/volunteer/get-volunteer/:id', verifyToken, authorizeRole("Admin"), VolunteerController.getVolunteerById);
+router.delete('/volunteer/delete-volunteer/:id', verifyToken, authorizeRole("Admin"), VolunteerController.deleteVolunteer);
 
 export default router;

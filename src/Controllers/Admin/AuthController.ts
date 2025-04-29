@@ -38,6 +38,7 @@ class AuthController {
                         name,
                         email,
                         password: hashedPassword,
+                        type: 'user',
                         role,
                     },
                 });
@@ -47,7 +48,7 @@ class AuthController {
                     expiresIn: '1h',
                 });
 
-                res.status(201).json({ message: 'User registered successfully', token, id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role });
+                res.status(201).json({ message: 'User registered successfully', token, id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role, type: newUser.type });
                 console.log('User registered successfully');
             } catch (error) {
                 res.status(500).json({ message: 'Server error' });
@@ -64,38 +65,61 @@ class AuthController {
         const { email, password } = req.body;
     
         try {
-            // Check if the user exists
-            const user = await prisma.user.findUnique({ where: { email } });
+            // Fetch the user and include company info if they are a company
+            const user = await prisma.user.findUnique({
+                where: { email },
+                include: {
+                    company: true, // Will be null if not a company
+                },
+            });
+    
             if (!user) {
                 res.status(401).json({ message: 'Invalid email or password' });
                 return;
             }
     
-            // Check if the password is correct
+            // Compare the provided password
             const isPasswordValid = await bcrypt.compare(password, user.password);
             if (!isPasswordValid) {
                 res.status(401).json({ message: 'Invalid email or password' });
+                return;
             }
     
-            // Generate a JWT token
-            const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET as string, {
+            // Prepare token payload
+            const payload: any = {
+                id: user.id,
+                type: user.type,
+                role: user.role,
+            };
+    
+            if (user.type === 'company' && user.company) {
+                payload.companyId = user.company.id;
+            }
+    
+            // Generate JWT token
+            const token = jwt.sign(payload, process.env.JWT_SECRET as string, {
                 expiresIn: '23h',
             });
     
+            // Send response
             res.status(200).json({
                 message: 'User logged in successfully',
                 token,
                 id: user.id,
                 name: user.name,
                 email: user.email,
-                role: user.role
+                type: user.type,
+                role: user.role,
+                company: user.company ?? null,
             });
+    
             console.log('User logged in successfully');
         } catch (error) {
+            console.error('Login error:', error);
             res.status(500).json({ message: 'Server error' });
-            console.error(error);
         }
     }
+    
 
     static async UserProfile(req: UserRequest, res: Response): Promise<void> {
         try {

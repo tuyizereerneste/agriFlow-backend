@@ -4,28 +4,38 @@ import { prisma } from "../../../config/db";
 
 class ProjectController {
   static async createProject(req: Request, res: Response): Promise<void> {
-    const { title, description, owner, startDate, endDate, objectives, targetPractices } = req.body;
+    const {title, description, userId, startDate, endDate, objectives, targetPractices} = req.body;
   
-    if (!title || !owner || !startDate || !endDate || !targetPractices) {
+    if (!title || !userId || !startDate || !endDate || !targetPractices) {
       res.status(400).json({ message: "Missing required fields" });
       return;
     }
   
     try {
       const result = await prisma.$transaction(async (tx) => {
-        // 1. Create Project
+        // ✅ Fetch the companyId from the selected user
+        const user = await tx.user.findUnique({
+          where: { id: userId },
+          include: { company: true },
+        });
+  
+        if (!user || user.type !== "company" || !user.company) {
+          throw new Error("Selected user is not a valid company.");
+        }
+  
+        // ✅ Use company.id as owner
         const project = await tx.project.create({
           data: {
             title,
             description,
-            owner,
+            owner: user.company.id,
             startDate: new Date(startDate),
             endDate: new Date(endDate),
             objectives,
           },
         });
   
-        // 2. Create targetPractices and associated activities
+        // ✅ Create target practices and activities (no extra validation added)
         for (const practice of targetPractices) {
           const createdPractice = await tx.targetPractice.create({
             data: {
@@ -35,13 +45,8 @@ class ProjectController {
             },
           });
   
-          // If this practice has activities, create them
           if (practice.activities && Array.isArray(practice.activities)) {
             for (const activity of practice.activities) {
-              if (!activity.title || !activity.description || !activity.startDate || !activity.endDate) {
-                throw new Error("Activity is missing required fields.");
-              }
-  
               await tx.activity.create({
                 data: {
                   title: activity.title,
@@ -58,12 +63,19 @@ class ProjectController {
         return project;
       });
   
-      res.status(201).json({ message: "Project with activities created successfully", data: result });
+      res.status(201).json({
+        message: "Project with activities created successfully",
+        data: result,
+      });
     } catch (error) {
       console.error("Error creating project with activities:", error);
-      res.status(500).json({ message: "Error creating project with activities", error });
+      res.status(500).json({
+        message: "Error creating project with activities",
+        error: error instanceof Error ? error.message : error,
+      });
     }
-  }
+  }  
+  
   
 
   static async getProjectById(req: Request, res: Response): Promise<void> {
