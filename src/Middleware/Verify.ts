@@ -7,7 +7,8 @@ const prisma = new PrismaClient();
 interface AuthRequest extends Request {
   user?: {
     id: string;
-    role: string;
+    role?: string; // Role is optional for companies
+    type: string;
   };
 }
 
@@ -36,7 +37,10 @@ export const verifyToken = async (req: AuthRequest, res: Response, next: NextFun
       return;
     }
 
-    req.user = { id: decoded.id, role: user.role };
+    // Convert null role to undefined
+    const role = user.role ?? undefined;
+
+    req.user = { id: decoded.id, role, type: user.type };
     console.log("User verified:", req.user);
     next();
   } catch (error) {
@@ -51,6 +55,20 @@ export const authorizeRole = (role: string) => {
 
     if (req.user && req.user.role === role) {
       console.log("Role authorized");
+      next();
+    } else {
+      console.error("Access denied. Insufficient permissions.");
+      res.status(403).json({ message: "Access denied. Insufficient permissions." });
+    }
+  };
+};
+
+export const authorizeType = (type: string) => {
+  return (req: AuthRequest, res: Response, next: NextFunction): void => {
+    console.log("authorizeType middleware called for type:", type);
+
+    if (req.user && req.user.type === type) {
+      console.log("Type authorized");
       next();
     } else {
       console.error("Access denied. Insufficient permissions.");

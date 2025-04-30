@@ -12,13 +12,6 @@ interface ChildInput {
   gender: "Male" | "Female";
 }
 
-interface LandInput {
-  size: number;
-  ownership: "Owned" | "Rented" | "Borrowed" | "Other";
-  crops: string[];
-  nearby: string[];
-  image?: string;
-}
 class FarmerController {
   static async createFarmer(req: Request, res: Response): Promise<void> {
     const { error } = createFarmerSchema.validate(req.body);
@@ -232,6 +225,36 @@ class FarmerController {
     } catch (error) {
         console.error("Error fetching farmer:", error);
         res.status(500).json({ message: "Error fetching farmer", error });
+    }
+}
+
+static async getFarmerLands(req: Request, res: Response): Promise<void> {
+    try {
+        const { farmerId } = req.params;
+
+        const farmer = await prisma.farmer.findUnique({
+            where: { id: farmerId },
+            include: {
+                lands: {
+                    include: {
+                        locations: {
+                            include: {
+                                location: true,
+                            },
+                        },
+                    },
+                },
+            }
+        });
+
+        if (!farmer) {
+            res.status(404).json({ message: "Farmer not found" });
+        } else {
+            res.status(200).json(farmer.lands);
+        }
+    } catch (error) {
+        console.error("Error fetching farmer lands:", error);
+        res.status(500).json({ message: "Error fetching farmer lands", error });
     }
 }
 
