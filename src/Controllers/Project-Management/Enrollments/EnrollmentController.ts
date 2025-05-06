@@ -12,6 +12,15 @@ class EnrollmentController {
           res.status(400).json({ message: "Missing or invalid data" });
           return;
         }
+
+        const existingEnrollment = await prisma.projectEnrollment.findFirst({
+          where: { farmerId, projectId },
+        });
+        if (existingEnrollment) {
+          res.status(400).json({ message: "Farmer is already enrolled in this project." });
+          return;
+        }
+        
     
         // ✅ 1. Validate Farmer
         const farmer = await prisma.farmer.findUnique({ where: { id: farmerId } });

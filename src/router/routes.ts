@@ -32,7 +32,7 @@ router.get('/farmer/farmer-land/:farmerId', verifyToken, authorizeRole('Admin'),
 router.get('/search', verifyToken, authorizeRole('Admin'), SearchController.searchFarmers);
 router.get('/project/search', verifyToken, authorizeRole('Admin'), ProjectSearchController.searchProjects);
 router.get('/project/project-practices/:projectId', verifyToken, authorizeRole('Admin'), ProjectController.getProjectPractices);
-
+router.get('/project/practice-activities/:practiceId', verifyToken, authorizeRole('Admin'), ProjectController.getPracticeActivities);
 router.get("/farmers/export-excel", async (req, res) => {
     await GenerateExcel.generateExcelExport(res);
 });

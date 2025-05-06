@@ -16,6 +16,17 @@ class GenerateProjectExcel {
     try {
       const projects = await prisma.project.findMany({
         include: {
+          owner: {
+            select: {
+              name: true,
+              email: true,
+              company: {
+                select: {
+                  tin: true,
+                },
+              },
+            },
+          },
           farmers: {
             include: {
               farmer: true,
@@ -41,10 +52,10 @@ class GenerateProjectExcel {
           },
         },
       });
-
+  
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Projects');
-
+  
       worksheet.columns = [
         { header: 'Project ID', key: 'projectId', width: 20 },
         { header: 'Title', key: 'title', width: 30 },
@@ -62,26 +73,32 @@ class GenerateProjectExcel {
         { header: 'Land Size', key: 'landSize', width: 15 },
         { header: 'Land Location', key: 'landLocation', width: 35 },
       ];
-
+  
       for (const project of projects) {
         const farmerNames = project.farmers.map(f => f.farmer.names).join(', ') || 'N/A';
         const practices = project.targetPractices.length ? project.targetPractices : [null];
-
+  
+        const ownerName =
+          project.owner?.name ||
+          project.owner?.company?.tin ||
+          project.owner?.email ||
+          'N/A';
+  
         for (const practice of practices) {
           const activities = practice?.activities?.length ? practice.activities : [null];
           const lands = practice?.lands?.length ? practice.lands : [null];
           const maxRows = Math.max(activities.length, lands.length);
-
+  
           for (let i = 0; i < maxRows; i++) {
-            const activity: { title?: string; description?: string; startDate?: Date; endDate?: Date } = activities[i] || {};
-            const land: { locations?: { location?: any }[] } = lands[i]?.land || {};
-            const landLocation = land?.locations?.[0]?.location || {};
-
+            const activity = activities[i] || { title: '', description: '', startDate: null, endDate: null };
+            const land = lands[i]?.land as { locations?: { location?: any }[] } || {};
+            const landLocation = land.locations?.[0]?.location || {};
+  
             worksheet.addRow({
               projectId: i === 0 ? project.id : '',
               title: i === 0 ? project.title : '',
               description: i === 0 ? project.description : '',
-              owner: i === 0 ? project.owner : '',
+              owner: i === 0 ? ownerName : '',
               startDate: i === 0 ? this.formatDate(project.startDate) : '',
               endDate: i === 0 ? this.formatDate(project.endDate) : '',
               objectives: i === 0 ? project.objectives : '',
@@ -91,7 +108,7 @@ class GenerateProjectExcel {
               activityDescription: activity?.description || '',
               activityStartDate: activity?.startDate ? this.formatDate(activity.startDate) : '',
               activityEndDate: activity?.endDate ? this.formatDate(activity.endDate) : '',
-              landSize: lands[i]?.land?.size || '',
+              landSize: (lands[i]?.land as any)?.size || '',
               landLocation: landLocation?.province
                 ? `${landLocation.province}, ${landLocation.district}, ${landLocation.sector}, ${landLocation.cell}, ${landLocation.village}`
                 : '',
@@ -99,10 +116,10 @@ class GenerateProjectExcel {
           }
         }
       }
-
+  
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', 'attachment; filename=projects.xlsx');
-
+  
       await workbook.xlsx.write(res);
       res.end();
     } catch (error) {
@@ -110,6 +127,8 @@ class GenerateProjectExcel {
       res.status(500).send('Internal Server Error');
     }
   }
+  
+  
 }
 
 export default GenerateProjectExcel;

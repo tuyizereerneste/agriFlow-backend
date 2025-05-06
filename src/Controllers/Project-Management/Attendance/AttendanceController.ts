@@ -14,6 +14,15 @@ static async registerAttendance(req: Request, res: Response): Promise<void> {
         res.status(400).json({ message: "Missing required fields" });
         return;
       }
+
+      const existing = await prisma.attendance.findFirst({
+        where: { farmerId, activityId },
+      });
+      if (existing) {
+        res.status(400).json({ message: "Attendance already recorded for this activity" });
+        return;
+      }
+      
   
       const activity = await prisma.activity.findUnique({
         where: { id: activityId },
