@@ -254,6 +254,54 @@ class ProjectController {
     }
   }
 
+  static async getCompanyProjects(req: Request, res: Response): Promise<void> {
+    const { userId } = req.params;
+
+    if (!userId) {
+      res.status(400).json({ message: "User ID is required" });
+      return;
+    }
+
+    try {
+      const projects = await prisma.project.findMany({
+        where: { ownerId: userId },
+        include: {
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              type: true,
+              company: {
+                select: {
+                  id: true,
+                  logo: true,
+                  tin: true,
+                },
+              },
+            },
+          },
+          
+          targetPractices: {
+            include: {
+              activities: true,
+            },
+          },
+        },
+      });
+
+      if (!projects) {
+        res.status(404).json({ message: "No projects found for this user" });
+        return;
+      }
+
+      res.status(200).json({ message: "Projects retrieved successfully", data: projects });
+    } catch (error) {
+      console.error("Error retrieving projects:", error);
+      res.status(500).json({ message: "Error retrieving projects", error });
+    }
+  }
+
   
   
 }

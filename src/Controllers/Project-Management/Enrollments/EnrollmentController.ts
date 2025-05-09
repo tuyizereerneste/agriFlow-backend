@@ -98,6 +98,80 @@ class EnrollmentController {
         res.status(500).json({ message: "Failed to enroll farmer", error });
       }
 }
+
+static async getEnrollmentByPractice(req: Request, res: Response): Promise<void> {
+  const { practiceId } = req.params;
+
+  if (!practiceId) {
+    res.status(400).json({ message: "Practice ID is required" });
+    return;
+  }
+
+  try {
+    // Step 1: Get the practice and its project
+    const practice = await prisma.targetPractice.findUnique({
+      where: { id: practiceId },
+      select: {
+        id: true,
+        title: true,
+        projectId: true,
+        project: {
+          select: {
+            title: true,
+          },
+        },
+      },
+    });
+
+    if (!practice) {
+      res.status(404).json({ message: "Practice not found" });
+      return;
+    }
+
+    // Step 2: Get farmers enrolled in the project
+    const enrollments = await prisma.projectEnrollment.findMany({
+      where: { projectId: practice.projectId },
+      include: {
+        farmer: {
+          select: {
+            id: true,
+            names: true,
+            phones: true,
+            farmerNumber: true,
+            dob: true,
+            gender: true,
+            location: true,
+          },
+        },
+      },
+    });
+
+    const farmers = enrollments.map((e) => e.farmer);
+
+    if (!farmers || farmers.length === 0) {
+      res.status(404).json({ message: "No farmers found for this practice" });
+      return;
+    }
+
+    // Step 3: Return enriched response
+    res.status(200).json({
+      message: "Farmers retrieved successfully",
+      data: {
+        projectTitle: practice.project.title,
+        practiceTitle: practice.title,
+        farmers,
+      },
+    });
+  } catch (error) {
+    console.error("Error retrieving farmers:", error);
+    res.status(500).json({ message: "Error retrieving farmers", error });
+  }
+}
+
+
+
+
+
 }
 
 export default EnrollmentController;

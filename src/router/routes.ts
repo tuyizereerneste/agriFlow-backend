@@ -15,6 +15,7 @@ import ProjectSearchController from '../Controllers/Project-Management/Project/S
 import GenerateProjectExcel from '../Controllers/Project-Management/Project/generateProjectExcel';
 import CompanyController from '../Controllers/Company/CampanyController';
 import VolunteerController from '../Controllers/VolunteerController/VolunteerController';
+import PracticeFarmersExcel from '../Controllers/Project-Management/Project/generateFarmerExcel';
 
 const router = Router();
 
@@ -37,7 +38,7 @@ router.get("/farmers/export-excel", async (req, res) => {
     await GenerateExcel.generateExcelExport(res);
 });
 router.get('/projects/export-excel', async (req, res) => {
-    await GenerateProjectExcel.generateExcelExport(res);
+    await GenerateProjectExcel.generateExcelExport(req, res);
 });
 
 router.get('/farmer/generate-qrcode/:farmerId', verifyToken, authorizeRole('Admin'), QrCodeController.generateQrCode);
@@ -45,16 +46,21 @@ router.get('/farmer/generate-qrcode/:farmerId', verifyToken, authorizeRole('Admi
 router.post('/project/create-project', verifyToken, authorizeRole('Admin'), ProjectController.createProject);
 router.get('/project/all-projects', verifyToken, authorizeRole('Admin'), ProjectController.getAllProjects);
 router.get('/project/get-project/:projectId', verifyToken, authorizeRole('Admin'), ProjectController.getProjectById);
+
+router.get('/project/get-company-projects/:userId', verifyToken, authorizeRole('Admin'), ProjectController.getCompanyProjects);
+router.get('/get-practice-farmers/:practiceId', verifyToken, authorizeRole('Admin'), EnrollmentController.getEnrollmentByPractice);
 //router.get('/projest/project-details/:id', verifyToken, authorizeRole('Admin'), ProjectController.getProjectById);
 
 router.post('/project/enroll-farmer', verifyToken, authorizeRole('Admin'), EnrollmentController.enrollFarmerInProject);
-
+router.post('/project/excel-export', async (req, res) => {
+    await PracticeFarmersExcel.generatePracticeFarmersExcel(req, res);
+});
 router.post('/project/attendance', verifyToken, authorizeRole('Admin'), attendanceUpload.array("photos"), AttendanceController.registerAttendance);
 
 // Company routes
 
 router.post('/company/register-company', verifyToken, authorizeRole("Admin"), logoUpload.single('logo'), CompanyController.createCompany);
-router.get('/company/get-all-companies', verifyToken, authorizeRole("Admin"), CompanyController.getAllCompanies);
+router.get('/company/all', verifyToken, authorizeRole("Admin"), CompanyController.getAllCompanies);
 router.get('/company/get-company/:id', verifyToken, authorizeRole("Admin"), CompanyController.getCompanyById);
 router.delete('/company/delete-company/:id', verifyToken, authorizeRole("Admin"), CompanyController.deleteCompany);
 
