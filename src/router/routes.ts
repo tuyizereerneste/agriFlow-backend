@@ -56,6 +56,8 @@ router.post('/project/excel-export', async (req, res) => {
     await PracticeFarmersExcel.generatePracticeFarmersExcel(req, res);
 });
 router.post('/project/attendance', verifyToken, authorizeRole('Admin'), attendanceUpload.array("photos"), AttendanceController.registerAttendance);
+router.get('/project/attendance/:activityId', verifyToken, authorizeRole('Admin'), AttendanceController.getValidAttendanceByActivity);
+router.get('/project/farmer-attendance/:farmerId', verifyToken, authorizeRole('Admin'), AttendanceController.getAttendanceByFarmer);
 
 // Company routes
 
