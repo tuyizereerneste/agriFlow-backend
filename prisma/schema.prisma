@@ -22,6 +22,7 @@ model User {
   type     UserType
   company  Company?
   location Location[]
+  projects Project[]
 }
 
 enum Role {
@@ -139,17 +140,20 @@ enum NearbyType {
 
 
 model Project {
-  id             String             @id @default(auto()) @map("_id") @db.ObjectId
-  title          String
-  description    String
-  owner          String             // e.g., ABC Bank
-  startDate      DateTime
-  endDate        DateTime
-  objectives     String
-  targetPractices TargetPractice[]   // Related practices
-  farmers        ProjectEnrollment[]
-  createdAt      DateTime           @default(now())
+  id              String             @id @default(auto()) @map("_id") @db.ObjectId
+  title           String
+  description     String
+  ownerId         String             @db.ObjectId
+  owner           User              @relation(fields: [ownerId], references: [id])
+  startDate       DateTime
+  endDate         DateTime
+  objectives      String
+  targetPractices TargetPractice[]
+  farmers         ProjectEnrollment[]
+  createdAt       DateTime           @default(now())
 }
+
+
 
 model ProjectEnrollment {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId

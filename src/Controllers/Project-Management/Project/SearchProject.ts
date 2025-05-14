@@ -24,10 +24,10 @@ class ProjectSearchController {
   
       if (isNaN(pageNumber) || pageNumber < 1 || isNaN(limitNumber) || limitNumber < 1) {
         res.status(400).json({ message: "Invalid page or limit values" });
+        return;
       }
   
       const skip = (pageNumber - 1) * limitNumber;
-  
       const filters: any = {};
   
       // Date filters
@@ -47,14 +47,18 @@ class ProjectSearchController {
         }
       }
   
-      // Text query across multiple fields
+      // Text query across fields (including owner name)
       if (query) {
         const q = query as string;
         filters.OR = [
           { title: { contains: q, mode: "insensitive" } },
           { description: { contains: q, mode: "insensitive" } },
-          { owner: { contains: q, mode: "insensitive" } },
           { objectives: { contains: q, mode: "insensitive" } },
+          {
+            owner: {
+              name: { contains: q, mode: "insensitive" },
+            },
+          },
         ];
       }
   
@@ -81,6 +85,21 @@ class ProjectSearchController {
           createdAt: "desc",
         },
         include: {
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              type: true,
+              company: {
+                select: {
+                  id: true,
+                  logo: true,
+                  tin: true,
+                },
+              },
+            },
+          },
           targetPractices: {
             include: {
               activities: true,
@@ -102,7 +121,7 @@ class ProjectSearchController {
       console.error("Error searching projects:", error);
       res.status(500).json({ message: "Error searching projects", error });
     }
-  }
+  }  
   
   
 }

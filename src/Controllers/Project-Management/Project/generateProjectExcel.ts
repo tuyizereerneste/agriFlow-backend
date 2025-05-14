@@ -1,6 +1,7 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import ExcelJS from 'exceljs';
 import { PrismaClient } from '@prisma/client';
+
 const prisma = new PrismaClient();
 
 class GenerateProjectExcel {
@@ -12,18 +13,41 @@ class GenerateProjectExcel {
     return `${year}-${month}-${day}`;
   }
 
-  static async generateExcelExport(res: Response): Promise<void> {
+  static async generateExcelExport(req: Request, res: Response): Promise<void> {
     try {
+      const { projectId, practiceId, activityId } = req.body;
+
+      const whereClause: any = {};
+
+      if (projectId) {
+        whereClause.id = projectId;
+      }
+
       const projects = await prisma.project.findMany({
+        where: whereClause,
         include: {
+          owner: {
+            select: {
+              name: true,
+              email: true,
+              company: {
+                select: {
+                  tin: true,
+                },
+              },
+            },
+          },
           farmers: {
             include: {
               farmer: true,
             },
           },
           targetPractices: {
+            where: practiceId ? { id: practiceId } : {},
             include: {
-              activities: true,
+              activities: {
+                where: activityId ? { id: activityId } : {},
+              },
               lands: {
                 include: {
                   land: {
@@ -67,21 +91,27 @@ class GenerateProjectExcel {
         const farmerNames = project.farmers.map(f => f.farmer.names).join(', ') || 'N/A';
         const practices = project.targetPractices.length ? project.targetPractices : [null];
 
+        const ownerName =
+          project.owner?.name ||
+          project.owner?.company?.tin ||
+          project.owner?.email ||
+          'N/A';
+
         for (const practice of practices) {
           const activities = practice?.activities?.length ? practice.activities : [null];
           const lands = practice?.lands?.length ? practice.lands : [null];
           const maxRows = Math.max(activities.length, lands.length);
 
           for (let i = 0; i < maxRows; i++) {
-            const activity: { title?: string; description?: string; startDate?: Date; endDate?: Date } = activities[i] || {};
-            const land: { locations?: { location?: any }[] } = lands[i]?.land || {};
-            const landLocation = land?.locations?.[0]?.location || {};
+            const activity = activities[i] || { title: '', description: '', startDate: null, endDate: null };
+            const land = lands[i]?.land as { locations?: { location?: any }[] } || {};
+            const landLocation = land.locations?.[0]?.location || {};
 
             worksheet.addRow({
               projectId: i === 0 ? project.id : '',
               title: i === 0 ? project.title : '',
               description: i === 0 ? project.description : '',
-              owner: i === 0 ? project.owner : '',
+              owner: i === 0 ? ownerName : '',
               startDate: i === 0 ? this.formatDate(project.startDate) : '',
               endDate: i === 0 ? this.formatDate(project.endDate) : '',
               objectives: i === 0 ? project.objectives : '',
@@ -91,7 +121,7 @@ class GenerateProjectExcel {
               activityDescription: activity?.description || '',
               activityStartDate: activity?.startDate ? this.formatDate(activity.startDate) : '',
               activityEndDate: activity?.endDate ? this.formatDate(activity.endDate) : '',
-              landSize: lands[i]?.land?.size || '',
+              landSize: (lands[i]?.land as any)?.size || '',
               landLocation: landLocation?.province
                 ? `${landLocation.province}, ${landLocation.district}, ${landLocation.sector}, ${landLocation.cell}, ${landLocation.village}`
                 : '',
