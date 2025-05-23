@@ -42,6 +42,7 @@ router.get('/projects/export-excel', async (req, res) => {
 });
 
 router.get('/farmer/generate-qrcode/:farmerId', verifyToken, authorizeRole('Admin'), QrCodeController.generateQrCode);
+router.get('/farmer/by-qrcode/:qrCode', verifyToken, authorizeRole('Admin'), QrCodeController.getFarmerByQrCode);
 
 router.post('/project/create-project', verifyToken, authorizeRole('Admin'), ProjectController.createProject);
 router.get('/project/all-projects', verifyToken, authorizeRole('Admin'), ProjectController.getAllProjects);
