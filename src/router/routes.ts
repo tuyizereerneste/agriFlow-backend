@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import AuthController from '../Controllers/Admin/AuthController';
 import FarmerController from '../Controllers/Farmer/FarmerController';
-import { verifyToken } from '../Middleware/Verify';
+import { authorizeType, verifyToken } from '../Middleware/Verify';
 import { authorizeRole } from '../Middleware/Verify';
 import SearchController from '../Controllers/Farmer/SearchController';
 import QrCodeController from '../Controllers/Farmer/QrCodeController';
@@ -16,6 +16,7 @@ import GenerateProjectExcel from '../Controllers/Project-Management/Project/gene
 import CompanyController from '../Controllers/Company/CampanyController';
 import VolunteerController from '../Controllers/VolunteerController/VolunteerController';
 import PracticeFarmersExcel from '../Controllers/Project-Management/Project/generateFarmerExcel';
+import CompanyProjectsController from '../Controllers/Company/CompanyProjects';
 
 const router = Router();
 
@@ -66,6 +67,8 @@ router.post('/company/register-company', verifyToken, authorizeRole("Admin"), lo
 router.get('/company/all', verifyToken, authorizeRole("Admin"), CompanyController.getAllCompanies);
 router.get('/company/get-company/:id', verifyToken, authorizeRole("Admin"), CompanyController.getCompanyById);
 router.delete('/company/delete-company/:id', verifyToken, authorizeRole("Admin"), CompanyController.deleteCompany);
+
+router.get('/company/get-company-projects/', verifyToken, authorizeType("company"), CompanyProjectsController.getCompanyProjects);
 
 // Volunteer routes
 router.post('/volunteer/register-volunteer', verifyToken, authorizeRole("Admin"), VolunteerController.createVolunteer);
