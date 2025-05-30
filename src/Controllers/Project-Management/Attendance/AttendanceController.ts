@@ -5,12 +5,16 @@ import { prisma } from "../../../config/db";
 class AttendanceController {
 
 
-static async registerAttendance(req: Request, res: Response): Promise<void> {
+  static async registerAttendance(req: Request, res: Response): Promise<void> {
     try {
+      console.log('Request body:', req.body); // Log the request body
+      console.log('Request files:', req.files); // Log the request files
+
       const { farmerId, activityId, notes } = req.body;
       const photos = req.files ? (req.files as Express.Multer.File[]).map(file => file.filename) : [];
-  
+
       if (!farmerId || !activityId) {
+        console.log('Missing required fields'); // Log missing fields
         res.status(400).json({ message: "Missing required fields" });
         return;
       }
@@ -19,34 +23,36 @@ static async registerAttendance(req: Request, res: Response): Promise<void> {
         where: { farmerId, activityId },
       });
       if (existing) {
+        console.log('Attendance already recorded for this activity'); // Log existing attendance
         res.status(400).json({ message: "Attendance already recorded for this activity" });
         return;
       }
-      
-  
+
       const activity = await prisma.activity.findUnique({
         where: { id: activityId },
         include: {
           targetPractice: { select: { projectId: true } },
         },
       });
-  
+
       if (!activity) {
+        console.log('Activity not found'); // Log activity not found
         res.status(404).json({ message: "Activity not found" });
         return;
       }
-  
+
       const projectId = activity.targetPractice.projectId;
-  
+
       const isEnrolled = await prisma.projectEnrollment.findFirst({
         where: { projectId, farmerId },
       });
-  
+
       if (!isEnrolled) {
+        console.log('Farmer is not enrolled in this project'); // Log farmer not enrolled
         res.status(403).json({ message: "Farmer is not enrolled in this project" });
         return;
       }
-  
+
       const attendance = await prisma.attendance.create({
         data: {
           farmerId,
@@ -55,13 +61,14 @@ static async registerAttendance(req: Request, res: Response): Promise<void> {
           photos,
         },
       });
-  
+
       res.status(201).json({ message: "Attendance recorded", data: attendance });
     } catch (error) {
       console.error("Error registering attendance:", error);
       res.status(500).json({ message: "Error registering attendance", error });
     }
   }
+
 
   static async getValidAttendanceByActivity(req: Request, res: Response): Promise<void> {
     try {
@@ -154,12 +161,18 @@ static async registerAttendance(req: Request, res: Response): Promise<void> {
   
       const attendanceRecords = await prisma.attendance.findMany({
         where: { farmerId },
+        orderBy: { createdAt: "desc" },
         include: {
+          farmer: true,
           activity: {
             include: {
               targetPractice: {
                 include: {
-                  project: true,
+                  project: {
+                    include: {
+                      owner: true,
+                    },
+                  },
                 },
               },
             },
@@ -181,6 +194,7 @@ static async registerAttendance(req: Request, res: Response): Promise<void> {
       res.status(500).json({ message: "Error fetching attendance records", error });
     }
   }
+  
 
   
 
