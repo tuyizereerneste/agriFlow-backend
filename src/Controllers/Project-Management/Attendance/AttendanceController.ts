@@ -7,14 +7,11 @@ class AttendanceController {
 
   static async registerAttendance(req: Request, res: Response): Promise<void> {
     try {
-      console.log('Request body:', req.body); // Log the request body
-      console.log('Request files:', req.files); // Log the request files
 
       const { farmerId, activityId, notes } = req.body;
       const photos = req.files ? (req.files as Express.Multer.File[]).map(file => file.filename) : [];
 
       if (!farmerId || !activityId) {
-        console.log('Missing required fields'); // Log missing fields
         res.status(400).json({ message: "Missing required fields" });
         return;
       }
@@ -23,7 +20,6 @@ class AttendanceController {
         where: { farmerId, activityId },
       });
       if (existing) {
-        console.log('Attendance already recorded for this activity'); // Log existing attendance
         res.status(400).json({ message: "Attendance already recorded for this activity" });
         return;
       }
@@ -36,7 +32,6 @@ class AttendanceController {
       });
 
       if (!activity) {
-        console.log('Activity not found'); // Log activity not found
         res.status(404).json({ message: "Activity not found" });
         return;
       }
@@ -48,7 +43,6 @@ class AttendanceController {
       });
 
       if (!isEnrolled) {
-        console.log('Farmer is not enrolled in this project'); // Log farmer not enrolled
         res.status(403).json({ message: "Farmer is not enrolled in this project" });
         return;
       }
