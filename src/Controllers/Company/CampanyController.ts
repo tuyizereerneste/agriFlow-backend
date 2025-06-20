@@ -3,6 +3,7 @@ import { prisma } from '../../config/db';
 import bcrypt from 'bcrypt';
 
 interface Location {
+  id?: string;
   province: string;
   district: string;
   sector: string;
@@ -155,6 +156,75 @@ class CompanyController {
     } catch (error) {
       console.error('Error deleting company:', error);
       res.status(500).json({ message: 'Failed to delete company' });
+    }
+  }
+
+  static async updateCompany(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    const { name, email, password, tin, locations }: CreateCompanyRequestBody = req.body;
+    const logo = req.file?.filename;
+
+    try {
+      const company = await prisma.company.findUnique({ where: { id } });
+      if (!company) {
+        res.status(404).json({ message: 'Company not found' });
+        return;
+      }
+
+      const user = await prisma.user.findUnique({ where: { id: company.userId } });
+      if (!user) {
+        res.status(404).json({ message: 'User not found' });
+        return;
+      }
+
+      const updatedUserData: any = {};
+      if (name) updatedUserData.name = name;
+      if (email) updatedUserData.email = email;
+      if (logo) updatedUserData.logo = logo;
+
+      const updatedCompanyData: any = {};
+      if (tin) updatedCompanyData.tin = tin;
+
+      const locationsArray: Location[] = typeof locations === 'string' ? JSON.parse(locations) : [];
+      
+      await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: user.id },
+          data: updatedUserData,
+        });
+
+        await tx.company.update({
+          where: { id },
+          data: updatedCompanyData,
+        });
+
+        // Update locations
+        for (const loc of locationsArray) {
+          await tx.location.upsert({
+            where: { id: loc.id }, // Assuming loc has an id field for existing locations
+            create: {
+              province: loc.province,
+              district: loc.district,
+              sector: loc.sector,
+              cell: loc.cell,
+              village: loc.village,
+              companyId: id,
+            },
+            update: {
+              province: loc.province,
+              district: loc.district,
+              sector: loc.sector,
+              cell: loc.cell,
+              village: loc.village,
+            },
+          });
+        }
+      });
+
+      res.status(200).json({ message: 'Company updated successfully' });
+    } catch (error) {
+      console.error('Error updating company:', error);
+      res.status(500).json({ message: 'Failed to update company' });
     }
   }
   

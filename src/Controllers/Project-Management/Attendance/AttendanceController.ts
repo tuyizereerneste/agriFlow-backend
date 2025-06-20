@@ -73,7 +73,6 @@ class AttendanceController {
         return;
       }
   
-      // Get the activity, practice, and project
       const activity = await prisma.activity.findUnique({
         where: { id: activityId },
         include: {
@@ -92,7 +91,6 @@ class AttendanceController {
   
       const projectId = activity.targetPractice.projectId;
   
-      // Get farmers enrolled in the project
       const enrolledFarmers = await prisma.projectEnrollment.findMany({
         where: { projectId },
         select: { farmerId: true },
@@ -100,7 +98,6 @@ class AttendanceController {
   
       const enrolledFarmerIds = new Set(enrolledFarmers.map(e => e.farmerId));
   
-      // Get attendance records for the activity
       const attendanceRecords = await prisma.attendance.findMany({
         where: { activityId },
         include: {
@@ -118,10 +115,9 @@ class AttendanceController {
         },
       });
   
-      // Filter only those farmers who are enrolled in the project
-      const validAttendance = attendanceRecords.filter(record =>
-        enrolledFarmerIds.has(record.farmer.id)
-      );
+      const validAttendance = attendanceRecords
+        .filter(record => enrolledFarmerIds.has(record.farmer.id))
+        .sort((a, b) => a.farmer.names.localeCompare(b.farmer.names));
   
       res.status(200).json({
         activity: {
@@ -144,6 +140,7 @@ class AttendanceController {
       res.status(500).json({ message: "Error fetching attendance", error });
     }
   }
+  
   static async getAttendanceByFarmer(req: Request, res: Response): Promise<void> {
     try {
       const { farmerId } = req.params;

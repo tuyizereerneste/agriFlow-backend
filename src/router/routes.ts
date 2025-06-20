@@ -17,6 +17,7 @@ import CompanyController from '../Controllers/Company/CampanyController';
 import VolunteerController from '../Controllers/VolunteerController/VolunteerController';
 import PracticeFarmersExcel from '../Controllers/Project-Management/Project/generateFarmerExcel';
 import CompanyProjectsController from '../Controllers/Company/CompanyProjects';
+import StatsController from '../Controllers/Project-Management/Enrollments/StatsController';
 
 const router = Router();
 
@@ -49,7 +50,7 @@ router.get('/project/all-projects', verifyToken, authorizeRole('Admin'), Project
 router.get('/project/get-project/:projectId', verifyToken, authorizeRole('Admin'), ProjectController.getProjectById);
 
 router.get('/project/get-company-projects/:userId', verifyToken, authorizeRole('Admin'), ProjectController.getCompanyProjects);
-router.get('/get-practice-farmers/:practiceId', verifyToken, authorizeRole('Admin'), EnrollmentController.getEnrollmentByPractice);
+router.get('/project/get-practice-farmers/:practiceId', verifyToken, authorizeRole('Admin'), EnrollmentController.getEnrollmentByPractice);
 //router.get('/projest/project-details/:id', verifyToken, authorizeRole('Admin'), ProjectController.getProjectById);
 
 router.post('/project/enroll-farmer', verifyToken, authorizeRole('Admin'), EnrollmentController.enrollFarmerInProject);
@@ -59,6 +60,7 @@ router.post('/project/excel-export', async (req, res) => {
 router.post('/project/attendance', verifyToken, authorizeRole('Admin'), attendanceUpload.array("photos"), AttendanceController.registerAttendance);
 router.get('/project/attendance/:activityId', verifyToken, authorizeRole('Admin'), AttendanceController.getValidAttendanceByActivity);
 router.get('/project/farmer-attendance/:farmerId', verifyToken, authorizeRole('Admin'), AttendanceController.getAttendanceByFarmer);
+router.get('/project-stats', verifyToken, authorizeRole('Admin'), StatsController.getStats);
 
 // Company routes
 
@@ -66,6 +68,7 @@ router.post('/company/register-company', verifyToken, authorizeRole("Admin"), lo
 router.get('/company/all', verifyToken, authorizeRole("Admin"), CompanyController.getAllCompanies);
 router.get('/company/get-company/:id', verifyToken, authorizeRole("Admin"), CompanyController.getCompanyById);
 router.delete('/company/delete-company/:id', verifyToken, authorizeRole("Admin"), CompanyController.deleteCompany);
+router.put('/company/update-company/:id', verifyToken, authorizeRole("Admin"), logoUpload.single('logo'), CompanyController.updateCompany);
 
 router.get('/company/get-company-projects/', verifyToken, authorizeType("company"), CompanyProjectsController.getCompanyProjects);
 
@@ -74,5 +77,6 @@ router.post('/volunteer/register-volunteer', verifyToken, authorizeRole("Admin")
 router.get('/volunteer/get-all-volunteers', verifyToken, authorizeRole("Admin"), VolunteerController.getAllVolunteers);
 router.get('/volunteer/get-volunteer/:id', verifyToken, authorizeRole("Admin"), VolunteerController.getVolunteerById);
 router.delete('/volunteer/delete-volunteer/:id', verifyToken, authorizeRole("Admin"), VolunteerController.deleteVolunteer);
+router.put('/volunteer/update-volunteer/:id', verifyToken, authorizeRole("Admin"), VolunteerController.updateVolunteer);
 
 export default router;

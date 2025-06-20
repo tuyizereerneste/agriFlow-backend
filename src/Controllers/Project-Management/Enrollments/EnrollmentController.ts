@@ -107,7 +107,6 @@ static async getEnrollmentByPractice(req: Request, res: Response): Promise<void>
   }
 
   try {
-    // Get the practice and its project
     const practice = await prisma.targetPractice.findUnique({
       where: { id: practiceId },
       select: {
@@ -127,7 +126,6 @@ static async getEnrollmentByPractice(req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Get farmers enrolled in the practice's project
     const enrollments = await prisma.projectEnrollment.findMany({
       where: { projectId: practice.projectId },
       include: {
@@ -145,12 +143,15 @@ static async getEnrollmentByPractice(req: Request, res: Response): Promise<void>
       },
     });
 
-    const farmers = enrollments.map((e) => e.farmer);
+    const farmers = enrollments
+      .map((e) => e.farmer)
+      .sort((a, b) => a.names.localeCompare(b.names));
 
     if (!farmers || farmers.length === 0) {
       res.status(404).json({ message: "No farmers found for this practice" });
       return;
     }
+
     res.status(200).json({
       message: "Farmers retrieved successfully",
       data: {
@@ -164,8 +165,6 @@ static async getEnrollmentByPractice(req: Request, res: Response): Promise<void>
     res.status(500).json({ message: "Error retrieving farmers", error });
   }
 }
-
-
 
 
 
