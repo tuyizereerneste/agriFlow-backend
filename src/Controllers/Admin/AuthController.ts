@@ -22,17 +22,14 @@ class AuthController {
             const { name, email, password, role } = req.body;
 
             try {
-                // Check if the user already exists
                 const existingUser = await prisma.user.findUnique({ where: { email } });
                 if (existingUser) {
                     res.status(400).json({ message: 'User already exists' });
                 }
 
-                // Hash the password
                 const salt = await bcrypt.genSalt(10);
                 const hashedPassword = await bcrypt.hash(password, salt);
 
-                // Create a new user
                 const newUser = await prisma.user.create({
                     data: {
                         name,
@@ -43,7 +40,6 @@ class AuthController {
                     },
                 });
 
-                // Generate a JWT token
                 const token = jwt.sign({ id: newUser.id }, process.env.JWT_SECRET as string, {
                     expiresIn: '1h',
                 });
@@ -65,11 +61,10 @@ class AuthController {
         const { email, password } = req.body;
     
         try {
-            // Fetch the user and include company info if they are a company
             const user = await prisma.user.findUnique({
                 where: { email },
                 include: {
-                    company: true, // Will be null if not a company
+                    company: true,
                 },
             });
     
@@ -78,14 +73,12 @@ class AuthController {
                 return;
             }
     
-            // Compare the provided password
             const isPasswordValid = await bcrypt.compare(password, user.password);
             if (!isPasswordValid) {
                 res.status(401).json({ message: 'Invalid email or password' });
                 return;
             }
     
-            // Prepare token payload
             const payload: any = {
                 id: user.id,
                 type: user.type,
@@ -96,12 +89,10 @@ class AuthController {
                 payload.companyId = user.company.id;
             }
     
-            // Generate JWT token
             const token = jwt.sign(payload, process.env.JWT_SECRET as string, {
                 expiresIn: '23h',
             });
     
-            // Send response
             res.status(200).json({
                 message: 'User logged in successfully',
                 token,
@@ -122,16 +113,94 @@ class AuthController {
     
 
     static async UserProfile(req: UserRequest, res: Response): Promise<void> {
+        const userId = req.user?.id;
+      
+        if (!userId) {
+          res.status(401).json({ message: 'Unauthorized' });
+          return;
+        }
+      
         try {
-            const user = await prisma.user.findUnique({ where: { id: req.user?.id } });
+          const user = await prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+              company: {
+                include: {
+                  location: true,
+                },
+              },
+            },
+          });
+      
+          if (!user) {
+            res.status(404).json({ message: 'User not found' });
+            return;
+          }
+      
+          res.status(200).json({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            type: user.type,
+            role: user.role,
+            company: user.company
+              ? {
+                  id: user.company.id,
+                  logo: user.company.logo,
+                  tin: user.company.tin,
+                  location: user.company.location.map((loc) => ({
+                    province: loc.province,
+                    district: loc.district,
+                    sector: loc.sector,
+                    cell: loc.cell,
+                    village: loc.village,
+                  })),
+                }
+              : null,
+          });
+        } catch (error) {
+          console.error('Profile retrieval error:', error);
+          res.status(500).json({ message: 'Server error' });
+        }
+      }
+      
+      
+
+    static async PasswordChange(req: UserRequest, res: Response): Promise<void> {
+        const userId = req.user?.id;
+        const { oldPassword, newPassword } = req.body;
+
+        if (!userId) {
+            res.status(401).json({ message: 'Unauthorized' });
+            return;
+        }
+
+        try {
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+
             if (!user) {
                 res.status(404).json({ message: 'User not found' });
                 return;
             }
-            res.status(200).json({ message: 'User profile fetched successfully', user });
+
+            const isOldPasswordValid = await bcrypt.compare(oldPassword, user.password);
+            if (!isOldPasswordValid) {
+                res.status(400).json({ message: 'Old password is incorrect' });
+                return;
+            }
+
+            const salt = await bcrypt.genSalt(10);
+            const hashedNewPassword = await bcrypt.hash(newPassword, salt);
+
+            await prisma.user.update({
+                where: { id: userId },
+                data: { password: hashedNewPassword },
+            });
+
+            res.status(200).json({ message: 'Password changed successfully' });
         } catch (error) {
+            console.error('Password change error:', error);
             res.status(500).json({ message: 'Server error' });
-            console.error(error);
         }
     }
     

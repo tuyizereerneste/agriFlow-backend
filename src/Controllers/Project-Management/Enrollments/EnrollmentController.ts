@@ -1,4 +1,3 @@
-// controllers/EnrollmentController.ts
 import { Request, Response } from "express";
 import { prisma } from "../../../config/db";
 
@@ -22,21 +21,21 @@ class EnrollmentController {
         }
         
     
-        // ✅ 1. Validate Farmer
+        // Validate Farmer
         const farmer = await prisma.farmer.findUnique({ where: { id: farmerId } });
         if (!farmer) {
           res.status(404).json({ message: "Farmer not found" });
           return;
         }
     
-        // ✅ 2. Validate Project
+        // Validate Project
         const project = await prisma.project.findUnique({ where: { id: projectId } });
         if (!project) {
           res.status(404).json({ message: "Project not found" });
           return;
         }
     
-        // ✅ 3. Validate all TargetPractices belong to the project
+        // Validate all TargetPractices belong to the project
         const allTargetPracticeIds = assignments.map(a => a.targetPracticeId);
         const validTargetPractices = await prisma.targetPractice.findMany({
           where: {
@@ -47,7 +46,7 @@ class EnrollmentController {
         });
         const validPracticeIdSet = new Set(validTargetPractices.map(p => p.id));
     
-        // ✅ 4. Validate farmer's land ownership
+        // Validate farmer's land ownership
         const farmerLandIds = await prisma.land.findMany({
           where: { farmerId },
           select: { id: true },
@@ -68,7 +67,7 @@ class EnrollmentController {
           }
         }
     
-        // ✅ Create ProjectEnrollment
+        // Create ProjectEnrollment
         const projectEnrollment = await prisma.projectEnrollment.create({
           data: {
             farmerId,
@@ -76,7 +75,7 @@ class EnrollmentController {
           },
         });
     
-        // ✅ Link lands to target practices
+        // Link lands to target practices
         for (const assignment of assignments) {
           for (const landId of assignment.landIds) {
             await prisma.targetPracticeLand.create({
@@ -108,7 +107,6 @@ static async getEnrollmentByPractice(req: Request, res: Response): Promise<void>
   }
 
   try {
-    // Step 1: Get the practice and its project
     const practice = await prisma.targetPractice.findUnique({
       where: { id: practiceId },
       select: {
@@ -128,7 +126,6 @@ static async getEnrollmentByPractice(req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Step 2: Get farmers enrolled in the project
     const enrollments = await prisma.projectEnrollment.findMany({
       where: { projectId: practice.projectId },
       include: {
@@ -146,14 +143,15 @@ static async getEnrollmentByPractice(req: Request, res: Response): Promise<void>
       },
     });
 
-    const farmers = enrollments.map((e) => e.farmer);
+    const farmers = enrollments
+      .map((e) => e.farmer)
+      .sort((a, b) => a.names.localeCompare(b.names));
 
     if (!farmers || farmers.length === 0) {
       res.status(404).json({ message: "No farmers found for this practice" });
       return;
     }
 
-    // Step 3: Return enriched response
     res.status(200).json({
       message: "Farmers retrieved successfully",
       data: {
@@ -167,8 +165,6 @@ static async getEnrollmentByPractice(req: Request, res: Response): Promise<void>
     res.status(500).json({ message: "Error retrieving farmers", error });
   }
 }
-
-
 
 
 
