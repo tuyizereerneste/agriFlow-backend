@@ -201,7 +201,7 @@ class CompanyController {
         // Update locations
         for (const loc of locationsArray) {
           await tx.location.upsert({
-            where: { id: loc.id }, // Assuming loc has an id field for existing locations
+            where: { id: loc.id },
             create: {
               province: loc.province,
               district: loc.district,

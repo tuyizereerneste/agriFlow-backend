@@ -23,7 +23,8 @@ const router = Router();
 
 router.post('/auth/register', AuthController.UserRegister);
 router.post('/auth/login', AuthController.UserLogin);
-router.get('/auth/me', verifyToken, authorizeRole('Admin'), AuthController.UserProfile);
+router.get('/user/profile', verifyToken, AuthController.UserProfile);
+router.post('/user/password-change', verifyToken, AuthController.PasswordChange);
 
 router.post('/farmer/create-farmer', verifyToken, authorizeRole('Admin'), FarmerController.createFarmer);
 router.get('/farmer/all-farmers', verifyToken, authorizeRole('Admin'), FarmerController.getAllFarmers);
