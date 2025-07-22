@@ -2,49 +2,62 @@
 import { Request, Response } from "express";
 import { prisma } from "../../../config/db";
 
+interface AuthRequest extends Request {
+  user?: {
+    id: string;
+  };
+}
+
 class ProjectController {
-  static async createProject(req: Request, res: Response): Promise<void> {
+  static async createProject(req: AuthRequest, res: Response): Promise<void> {
     const {
       title,
       description,
-      userId,
+      ownerId,
       startDate,
       endDate,
       objectives,
       targetPractices,
     } = req.body;
   
-    if (!title || !userId || !startDate || !endDate || !targetPractices) {
+    const creatorUserId = req.user?.id;
+  
+    if (!title || !ownerId || !startDate || !endDate || !targetPractices) {
       res.status(400).json({ message: "Missing required fields" });
+      return;
+    }
+    const existingProject = await prisma.project.findFirst({
+      where: { title, ownerId },
+    });
+    if (existingProject) {
+      res.status(400).json({ message: "Project with same title already exists" });
       return;
     }
   
     try {
       const result = await prisma.$transaction(async (tx) => {
-        console.log("userId", userId);
-        const user = await tx.user.findUniqueOrThrow({
-          where: { id: userId },
+        const ownerUser = await tx.user.findUniqueOrThrow({
+          where: { id: ownerId },
           include: { company: true },
         });
-        console.log("User found:", user);
   
-        if (!user || user.type !== "company" || !user.company) {
-          throw new Error("Selected user is not a valid company.");
+        if (!ownerUser || ownerUser.type !== "company" || !ownerUser.company) {
+          throw new Error("Selected owner user is not a valid company.");
         }
   
-        // ✅ Use company.id as ownerId
         const project = await tx.project.create({
           data: {
             title,
             description,
-            ownerId: userId,
+            ownerId,
+            createdById: creatorUserId,
             startDate: new Date(startDate),
             endDate: new Date(endDate),
             objectives,
           },
         });
   
-        // ✅ Create target practices and activities
+        // ✅ Create target practices and their activities
         for (const practice of targetPractices) {
           const createdPractice = await tx.targetPractice.create({
             data: {
@@ -84,6 +97,7 @@ class ProjectController {
       });
     }
   }
+  
 
   static async getAllProjects(req: Request, res: Response): Promise<void> {
     try {

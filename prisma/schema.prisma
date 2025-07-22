@@ -14,15 +14,28 @@ generator client {
 }
 
 model User {
-  id       String   @id @default(auto()) @map("_id") @db.ObjectId
-  name     String
-  email    String   @unique
-  password String
-  role     Role?
-  type     UserType
-  company  Company?
-  location Location[]
-  projects Project[]
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  email           String   @unique
+  password        String
+  role            Role?
+  type            UserType
+  company         Company?
+  location        Location[]
+
+  // Company user: Projects they own (company projects)
+  ownedProjects   Project[] @relation("ProjectOwner")
+
+  // Admin or CompanyUser: Projects they created (for audit trail)
+  createdProjects Project[] @relation("ProjectCreatedBy")
+
+  // Volunteer: Projects assigned to them
+  assignedProjects VolunteerProjectAssignment[]
+
+  // User: Farmers, Enrollments, Attendances they created
+  createdFarmers        Farmer[]
+  createdEnrollments    ProjectEnrollment[]
+  createdAttendances    Attendance[]
 }
 
 enum Role {
@@ -59,6 +72,10 @@ model Farmer {
   enrollments  ProjectEnrollment[]
   attendances  Attendance[]
   createdAt    DateTime   @default(now())
+
+  // NEW: Who created the farmer
+  createdById  String?
+  createdBy    User?       @relation(fields: [createdById], references: [id])
 }
 
 
@@ -144,24 +161,33 @@ model Project {
   title           String
   description     String
   ownerId         String             @db.ObjectId
-  owner           User              @relation(fields: [ownerId], references: [id])
+  owner           User               @relation("ProjectOwner", fields: [ownerId], references: [id]) // Company User who owns this project
   startDate       DateTime
   endDate         DateTime
   objectives      String
   targetPractices TargetPractice[]
   farmers         ProjectEnrollment[]
+  assignedVolunteers VolunteerProjectAssignment[]
   createdAt       DateTime           @default(now())
+
+  createdById     String?
+  createdBy       User?              @relation("ProjectCreatedBy", fields: [createdById], references: [id]) // Admin or CompanyUser who created it
 }
 
 
 
 model ProjectEnrollment {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  projectId  String
-  farmerId   String
-  createdAt  DateTime @default(now())
-  project    Project  @relation(fields: [projectId], references: [id])
-  farmer     Farmer   @relation(fields: [farmerId], references: [id])
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectId   String
+  farmerId    String
+  createdAt   DateTime @default(now())
+
+  // NEW: Who did the enrollment
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+
+  project     Project  @relation(fields: [projectId], references: [id])
+  farmer      Farmer   @relation(fields: [farmerId], references: [id])
 }
 
 
@@ -172,7 +198,7 @@ model TargetPractice {
   projectId        String
   project          Project              @relation(fields: [projectId], references: [id])
   activities       Activity[]
-  lands            TargetPracticeLand[] // Lands used in this practice
+  lands            TargetPracticeLand[] 
 }
 
 model Activity {
@@ -196,15 +222,29 @@ model TargetPracticeLand {
 }
 
 model Attendance {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  activityId String
-  farmerId   String
-  photos     String[]
-  notes      String?
-  createdAt  DateTime @default(now())
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  activityId  String
+  farmerId    String
+  photos      String[]
+  notes       String?
+  createdAt   DateTime @default(now())
 
-  activity   Activity @relation(fields: [activityId], references: [id])
-  farmer     Farmer   @relation(fields: [farmerId], references: [id])
+  // NEW: Who recorded this attendance
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+
+  activity    Activity @relation(fields: [activityId], references: [id])
+  farmer      Farmer   @relation(fields: [farmerId], references: [id])
+}
+
+model VolunteerProjectAssignment {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  volunteerId String  @db.ObjectId
+  projectId   String  @db.ObjectId
+  assignedAt  DateTime @default(now())
+
+  volunteer   User    @relation(fields: [volunteerId], references: [id])
+  project     Project @relation(fields: [projectId], references: [id])
 }
 
 

@@ -49,19 +49,22 @@ export const verifyToken = async (req: AuthRequest, res: Response, next: NextFun
   }
 };
 
-export const authorizeRole = (role: string) => {
+export const authorizeRole = (...roles: string[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    console.log("authorizeRole middleware called for role:", role);
+    console.log("authorizeRoles middleware called. Allowed roles:", roles);
 
-    if (req.user && req.user.role === role) {
-      console.log("Role authorized");
+    if (req.user && roles.includes(req.user.role ?? "")) {
+      console.log(`Role '${req.user.role}' authorized ✅`);
       next();
     } else {
-      console.error("Access denied. Insufficient permissions.");
+      console.error(
+        `Access denied ❌. User role '${req.user?.role}' is not in allowed roles: ${roles.join(', ')}`
+      );
       res.status(403).json({ message: "Access denied. Insufficient permissions." });
     }
   };
 };
+
 
 export const authorizeType = (type: string) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {

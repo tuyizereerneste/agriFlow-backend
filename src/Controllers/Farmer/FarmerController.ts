@@ -5,6 +5,12 @@ import { updateFarmerSchema } from "../../Validations/FarmerValidation";
 
 const prisma = new PrismaClient();
 
+interface AuthRequest extends Request {
+  user?: {
+    id: string;
+  };
+}
+
 
 interface ChildInput {
   name: string;
@@ -13,7 +19,13 @@ interface ChildInput {
 }
 
 class FarmerController {
-  static async createFarmer(req: Request, res: Response): Promise<void> {
+  static async createFarmer(req: AuthRequest, res: Response): Promise<void> {
+
+    const userId = req.user?.id;
+    if (!userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+    }
     const { error } = createFarmerSchema.validate(req.body);
     if (error) {
         res.status(400).json({ error: error.details[0].message });
@@ -45,6 +57,7 @@ class FarmerController {
                     phones: farmer.phones,
                     dob: new Date(farmer.dob),
                     gender: farmer.gender,
+                    createdById: userId,
                 },
             });
 
@@ -57,7 +70,7 @@ class FarmerController {
                         sector: location.sector,
                         cell: location.cell,
                         village: location.village,
-                        farmerId: newFarmer.id, // Associate with the farmer
+                        farmerId: newFarmer.id,
                     },
                 });
             }
@@ -197,36 +210,45 @@ class FarmerController {
 
   static async getFarmerById(req: Request, res: Response): Promise<void> {
     try {
-        const { id } = req.params;
-
-        const farmer = await prisma.farmer.findUnique({
-            where: { id },
+      const { id } = req.params;
+  
+      const farmer = await prisma.farmer.findUnique({
+        where: { id },
+        include: {
+          partner: true,
+          location: true,
+          children: true,
+          lands: {
             include: {
-                partner: true,
-                location: true,
-                children: true,
-                lands: {
-                    include: {
-                        locations: {
-                            include: {
-                                location: true,
-                            },
-                        },
-                    },
+              locations: {
+                include: {
+                  location: true,
                 },
+              },
             },
-        });
-
-        if (!farmer) {
-            res.status(404).json({ message: "Farmer not found" });
-        } else {
-            res.status(200).json(farmer);
-        }
+          },
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+      });
+  
+      if (!farmer) {
+        res.status(404).json({ message: "Farmer not found" });
+      } else {
+        res.status(200).json(farmer);
+      }
     } catch (error) {
-        console.error("Error fetching farmer:", error);
-        res.status(500).json({ message: "Error fetching farmer", error });
+      console.error("Error fetching farmer:", error);
+      res.status(500).json({ message: "Error fetching farmer", error });
     }
-}
+  }
+  
 
 static async getFarmerLands(req: Request, res: Response): Promise<void> {
     try {
