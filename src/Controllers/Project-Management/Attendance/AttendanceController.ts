@@ -100,6 +100,7 @@ class AttendanceController {
   static async getValidAttendanceByActivity(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { activityId } = req.params;
+      const id = activityId as string;
       const userId = req.user?.id;
   
       if (!activityId) {
@@ -109,7 +110,7 @@ class AttendanceController {
   
       // ✅ Load activity along with its practice and project
       const activity = await prisma.activity.findUnique({
-        where: { id: activityId },
+        where: { id },
         include: {
           targetPractice: {
             include: {
@@ -220,6 +221,7 @@ class AttendanceController {
   static async getAttendanceByFarmer(req: Request, res: Response): Promise<void> {
     try {
       const { farmerId } = req.params;
+      const id = farmerId as string;
   
       if (!farmerId) {
         res.status(400).json({ message: "Missing farmerId parameter" });
@@ -227,7 +229,7 @@ class AttendanceController {
       }
   
       const attendanceRecords = await prisma.attendance.findMany({
-        where: { farmerId },
+        where: { farmerId: id },
         orderBy: { createdAt: "desc" },
         include: {
           farmer: {

@@ -139,6 +139,7 @@ class ProjectController {
 
   static async getProjectById(req: Request, res: Response): Promise<void> {
     const { projectId } = req.params;
+    const id = projectId as string;
   
     if (!projectId) {
       res.status(400).json({ message: "Project ID is required" });
@@ -147,7 +148,7 @@ class ProjectController {
   
     try {
       const project = await prisma.project.findUnique({
-        where: { id: projectId },
+        where: { id },
         include: {
           owner: {
             select: {
@@ -217,6 +218,7 @@ class ProjectController {
   
   static async getProjectPractices(req: Request, res: Response): Promise<void> {
     const { projectId } = req.params;
+    const id = projectId as string;
 
     if (!projectId) {
       res.status(400).json({ message: "Project ID is required" });
@@ -225,7 +227,7 @@ class ProjectController {
 
     try {
       const projectPractices = await prisma.targetPractice.findMany({
-        where: { projectId },
+        where: { projectId: id },
         include: {
           activities: true,
         },
@@ -245,6 +247,7 @@ class ProjectController {
 
   static async getPracticeActivities(req: Request, res: Response): Promise<void> {
     const { practiceId } = req.params;
+    const id = practiceId as string;
 
     if (!practiceId) {
       res.status(400).json({ message: "Practice ID is required" });
@@ -253,7 +256,7 @@ class ProjectController {
 
     try {
       const activities = await prisma.activity.findMany({
-        where: { targetPracticeId: practiceId },
+        where: { targetPracticeId: id },
       });
 
       if (!activities) {
@@ -270,6 +273,7 @@ class ProjectController {
 
   static async getCompanyProjects(req: Request, res: Response): Promise<void> {
     const { userId } = req.params;
+    const id = userId as string;
 
     if (!userId) {
       res.status(400).json({ message: "User ID is required" });
@@ -278,7 +282,7 @@ class ProjectController {
 
     try {
       const projects = await prisma.project.findMany({
-        where: { ownerId: userId },
+        where: { ownerId: id },
         include: {
           owner: {
             select: {

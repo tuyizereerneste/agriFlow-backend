@@ -211,9 +211,10 @@ class FarmerController {
   static async getFarmerById(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+      const farmerId = id as string;
   
       const farmer = await prisma.farmer.findUnique({
-        where: { id },
+        where: { id: farmerId },
         include: {
           partner: true,
           location: true,
@@ -253,9 +254,10 @@ class FarmerController {
 static async getFarmerLands(req: Request, res: Response): Promise<void> {
     try {
         const { farmerId } = req.params;
+        const id = farmerId as string;
 
         const farmer = await prisma.farmer.findUnique({
-            where: { id: farmerId },
+            where: { id },
             include: {
                 lands: {
                     include: {
@@ -409,8 +411,9 @@ static async getFarmerLands(req: Request, res: Response): Promise<void> {
   static async deleteFarmer(req: Request, res: Response): Promise<void> {
     try {
       const { farmerId } = req.params;
+      const id = farmerId as string;
   
-      if (!farmerId) {
+      if (!id) {
         res.status(400).json({ error: "Farmer ID is missing" });
         return;
       }
@@ -418,22 +421,22 @@ static async getFarmerLands(req: Request, res: Response): Promise<void> {
       const transaction = await prisma.$transaction(async (prisma) => {
         // Delete associated children
         await prisma.child.deleteMany({
-          where: { farmerId: farmerId },
+          where: { farmerId: id },
         });
   
         // Delete associated lands
         await prisma.land.deleteMany({
-          where: { farmerId: farmerId },
+          where: { farmerId: id },
         });
   
         // Delete associated partner
         await prisma.partner.deleteMany({
-          where: { farmerId: farmerId },
+          where: { farmerId: id },
         });
   
         // Delete the farmer
         await prisma.farmer.delete({
-          where: { id: farmerId },
+          where: { id: id },
         });
       });
   

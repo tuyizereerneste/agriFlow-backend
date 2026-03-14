@@ -113,10 +113,11 @@ class VolunteerController {
     
     static async getVolunteerById(req: Request, res: Response): Promise<void> {
         const { id } = req.params;
+        const userId = id as string;
     
         try {
             const volunteer = await prisma.user.findUnique({
-                where: { id },
+                where: { id: userId },
                 include: {
                     location: true,
                 },
@@ -136,9 +137,10 @@ class VolunteerController {
     
     static async deleteVolunteer(req: Request, res: Response): Promise<void> {
         const { id } = req.params;
+        const userId = id as string;
     
         try {
-            const existingUser = await prisma.user.findUnique({ where: { id } });
+            const existingUser = await prisma.user.findUnique({ where: { id: userId } });
     
             if (!existingUser || existingUser.role !== 'Volunteer') {
                 res.status(404).json({ message: 'Volunteer not found' });
@@ -146,8 +148,8 @@ class VolunteerController {
             }
     
             await prisma.$transaction([
-                prisma.location.deleteMany({ where: { userId: id } }),
-                prisma.user.delete({ where: { id } }),
+                prisma.location.deleteMany({ where: { userId: existingUser.id } }),
+                prisma.user.delete({ where: { id: existingUser.id } }),
             ]);
     
             res.status(200).json({ message: 'Volunteer deleted successfully' });
@@ -159,10 +161,11 @@ class VolunteerController {
 
     static async updateVolunteer(req: Request, res: Response): Promise<void> {
         const { id } = req.params;
+        const userId = id as string;
         const { name, email, password, locations } = req.body;
 
         try {
-            const existingUser = await prisma.user.findUnique({ where: { id } });
+            const existingUser = await prisma.user.findUnique({ where: { id: userId } });
 
             if (!existingUser || existingUser.role !== 'Volunteer') {
                 res.status(404).json({ message: 'Volunteer not found' });
@@ -174,14 +177,14 @@ class VolunteerController {
             if (email) updatedData.email = email;
 
             const updatedUser = await prisma.user.update({
-                where: { id },
+                where: { id: userId },
                 data: updatedData,
             });
 
             if (locations) {
                 const locationsArray: Location[] = typeof locations === 'string' ? JSON.parse(locations) : locations || [];
                 
-                await prisma.location.deleteMany({ where: { userId: id } });
+                await prisma.location.deleteMany({ where: { userId: userId } });
 
                 // Create new locations
                 await Promise.all(
@@ -193,7 +196,7 @@ class VolunteerController {
                                 sector: loc.sector,
                                 cell: loc.cell,
                                 village: loc.village,
-                                userId: id,
+                                userId: userId,
                             },
                         })
                     )
@@ -265,6 +268,7 @@ class VolunteerController {
 
       static async getVolunteerProjects(req: AuthRequest, res: Response): Promise<void> {
         const { volunteerId } = req.params;
+        const userId = volunteerId as string;
       
         if (!volunteerId) {
           res.status(400).json({ message: "Volunteer ID is required" });
@@ -273,7 +277,7 @@ class VolunteerController {
       
         try {
           const projects = await prisma.volunteerProjectAssignment.findMany({
-            where: { volunteerId: volunteerId },
+            where: { volunteerId: userId },
             orderBy: { assignedAt: 'desc' },
             include: {
               project: true,

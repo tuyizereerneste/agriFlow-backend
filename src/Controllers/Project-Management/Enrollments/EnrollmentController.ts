@@ -128,6 +128,7 @@ class EnrollmentController {
 
 static async getEnrollmentByPractice(req: AuthRequest, res: Response): Promise<void> {
   const { practiceId } = req.params;
+  const id = practiceId as string;
   const userId = req.user?.id; 
 
   if (!practiceId) {
@@ -137,7 +138,7 @@ static async getEnrollmentByPractice(req: AuthRequest, res: Response): Promise<v
 
   try {
     const practice = await prisma.targetPractice.findUnique({
-      where: { id: practiceId },
+      where: { id },
       select: {
         id: true,
         title: true,
