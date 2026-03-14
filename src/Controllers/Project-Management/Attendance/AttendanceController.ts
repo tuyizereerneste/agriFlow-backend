@@ -10,6 +10,30 @@ interface AuthRequest extends Request {
 }
 
 class AttendanceController {
+  /**
+   * Register attendance for a farmer in an activity.
+   * 
+   * This endpoint expects the following fields in the request body:
+   * - farmerId: The ID of the farmer attending the activity.
+   * - activityId: The ID of the activity the farmer is attending.
+   * - notes: Optional notes about the farmer's attendance.
+   * - photos: Optional array of file names for photos of the farmer's attendance.
+   * 
+   * The endpoint returns a JSON response with the newly created attendance record.
+   * 
+   * Only authorized users with the 'Admin' or 'Volunteer' role can access this endpoint.
+   * 
+   * If the user is a Volunteer, the endpoint checks that the user is assigned to the project
+   * of the activity and that the farmer is enrolled in the project.
+   * 
+   * If the user is not authorized or does not have the required role, the endpoint returns a 401 Unauthorized response.
+   * 
+   * If the request body is missing required fields, the endpoint returns a 400 Bad Request response.
+   * 
+   * If the attendance record already exists for the given farmer and activity, the endpoint returns a 400 Bad Request response.
+   * 
+   * If an error occurs while registering the attendance, the endpoint returns a 500 Internal Server Error response.
+   */
   static async registerAttendance(req: AuthRequest, res: Response): Promise<void> {
     try {
       const userId = req.user?.id;
@@ -97,6 +121,13 @@ class AttendanceController {
   
 
 
+  /**
+   * Fetches valid attendance records for a given activity.
+   * @param {AuthRequest} req - The request object containing the activityId parameter and the user object.
+   * @param {Response} res - The response object.
+   * @returns {Promise<void>}
+   * @throws {Error} If an error occurs while fetching attendance records.
+   */
   static async getValidAttendanceByActivity(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { activityId } = req.params;
@@ -218,6 +249,21 @@ class AttendanceController {
   }
   
   
+/**
+ * Retrieves all attendance records for a given farmer.
+ * 
+ * @param {Request} req - Express request object.
+ * @param {Response} res - Express response object.
+ * @returns {Promise<void>} - Promise that resolves when the response has been sent.
+ *
+ * @example
+ * GET /api/attendance/farmer/:farmerId
+ * @example
+ * GET /api/attendance/farmer/12345
+ * 
+ * @throws {Error} - If an error occurs while retrieving the attendance records.
+ * @throws {Response} - If the farmerId parameter is missing or invalid.
+ */
   static async getAttendanceByFarmer(req: Request, res: Response): Promise<void> {
     try {
       const { farmerId } = req.params;
