@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { prisma } from '../../config/db';
 
 
 interface AuthRequest extends Request {
@@ -6,7 +7,6 @@ interface AuthRequest extends Request {
     id: string;
   };
 }
-import { prisma } from '../../config/db';
 
 class CompanyProjectsController {
   /**

@@ -26,7 +26,7 @@ router.post('/auth/login', AuthController.UserLogin);
 router.get('/user/profile', verifyToken, AuthController.UserProfile);
 router.post('/user/password-change', verifyToken, AuthController.PasswordChange);
 
-router.post('/farmer/create-farmer', verifyToken, authorizeRole('Admin'), FarmerController.createFarmer);
+router.post('/farmer/create-farmer', verifyToken, authorizeRole('Admin', 'Volunteer'), FarmerController.createFarmer);
 router.get('/farmer/all-farmers', verifyToken, authorizeRole('Admin'), FarmerController.getAllFarmers);
 router.get('/farmer/get-farmer/:id', FarmerController.getFarmerById);
 //router.put('/farmer/update-farmer/:farmerId', verifyToken, authorizeRole('Admin'), FarmerController.updateFarmer);
@@ -51,17 +51,23 @@ router.get('/project/all-projects', verifyToken, authorizeRole('Admin'), Project
 router.get('/project/get-project/:projectId', verifyToken, authorizeRole('Admin'), ProjectController.getProjectById);
 
 router.get('/project/get-company-projects/:userId', verifyToken, authorizeRole('Admin'), ProjectController.getCompanyProjects);
-router.get('/project/get-practice-farmers/:practiceId', verifyToken, authorizeRole('Admin'), EnrollmentController.getEnrollmentByPractice);
+router.get('/project/get-practice-farmers/:practiceId', verifyToken, authorizeRole('Admin', 'Volunteer'), EnrollmentController.getEnrollmentByPractice);
 //router.get('/projest/project-details/:id', verifyToken, authorizeRole('Admin'), ProjectController.getProjectById);
 
-router.post('/project/enroll-farmer', verifyToken, authorizeRole('Admin'), EnrollmentController.enrollFarmerInProject);
+router.post('/project/enroll-farmer', verifyToken, authorizeRole('Admin', 'Volunteer'), EnrollmentController.enrollFarmerInProject);
 router.post('/project/excel-export', async (req, res) => {
     await PracticeFarmersExcel.generatePracticeFarmersExcel(req, res);
 });
-router.post('/project/attendance', verifyToken, authorizeRole('Admin'), attendanceUpload.array("photos"), AttendanceController.registerAttendance);
-router.get('/project/attendance/:activityId', verifyToken, authorizeRole('Admin'), AttendanceController.getValidAttendanceByActivity);
+router.post('/project/attendance', verifyToken, authorizeRole('Admin', 'Volunteer'), attendanceUpload.array("photos"), AttendanceController.registerAttendance);
+router.get('/project/attendance/:activityId', verifyToken, authorizeRole('Admin', 'Volunteer'), AttendanceController.getValidAttendanceByActivity);
 router.get('/project/farmer-attendance/:farmerId', verifyToken, authorizeRole('Admin'), AttendanceController.getAttendanceByFarmer);
 router.get('/project-stats', verifyToken, authorizeRole('Admin'), StatsController.getStats);
+
+router.post('/volunteer/assign-to-project', verifyToken, authorizeRole('Admin'),VolunteerController.assignVolunteerToProject);
+router.get('/volunteer/search', verifyToken, authorizeRole('Admin'), VolunteerController.searchVolunteers);
+router.get('/volunteer/get-volunteer-projects/:volunteerId', verifyToken, authorizeRole('Admin'), VolunteerController.getVolunteerProjects);
+router.get('/volunteer/get-my-assigned-projects', verifyToken, authorizeRole("Volunteer"), VolunteerController.getMyAssignedProjects);
+  
 
 // Company routes
 

@@ -2,49 +2,62 @@
 import { Request, Response } from "express";
 import { prisma } from "../../../config/db";
 
+interface AuthRequest extends Request {
+  user?: {
+    id: string;
+  };
+}
+
 class ProjectController {
-  static async createProject(req: Request, res: Response): Promise<void> {
+  static async createProject(req: AuthRequest, res: Response): Promise<void> {
     const {
       title,
       description,
-      userId,
+      ownerId,
       startDate,
       endDate,
       objectives,
       targetPractices,
     } = req.body;
   
-    if (!title || !userId || !startDate || !endDate || !targetPractices) {
+    const creatorUserId = req.user?.id;
+  
+    if (!title || !ownerId || !startDate || !endDate || !targetPractices) {
       res.status(400).json({ message: "Missing required fields" });
+      return;
+    }
+    const existingProject = await prisma.project.findFirst({
+      where: { title, ownerId },
+    });
+    if (existingProject) {
+      res.status(400).json({ message: "Project with same title already exists" });
       return;
     }
   
     try {
       const result = await prisma.$transaction(async (tx) => {
-        console.log("userId", userId);
-        const user = await tx.user.findUniqueOrThrow({
-          where: { id: userId },
+        const ownerUser = await tx.user.findUniqueOrThrow({
+          where: { id: ownerId },
           include: { company: true },
         });
-        console.log("User found:", user);
   
-        if (!user || user.type !== "company" || !user.company) {
-          throw new Error("Selected user is not a valid company.");
+        if (!ownerUser || ownerUser.type !== "company" || !ownerUser.company) {
+          throw new Error("Selected owner user is not a valid company.");
         }
   
-        // ✅ Use company.id as ownerId
         const project = await tx.project.create({
           data: {
             title,
             description,
-            ownerId: userId,
+            ownerId,
+            createdById: creatorUserId,
             startDate: new Date(startDate),
             endDate: new Date(endDate),
             objectives,
           },
         });
   
-        // ✅ Create target practices and activities
+        // ✅ Create target practices and their activities
         for (const practice of targetPractices) {
           const createdPractice = await tx.targetPractice.create({
             data: {
@@ -84,6 +97,7 @@ class ProjectController {
       });
     }
   }
+  
 
   static async getAllProjects(req: Request, res: Response): Promise<void> {
     try {
@@ -125,6 +139,7 @@ class ProjectController {
 
   static async getProjectById(req: Request, res: Response): Promise<void> {
     const { projectId } = req.params;
+    const id = projectId as string;
   
     if (!projectId) {
       res.status(400).json({ message: "Project ID is required" });
@@ -133,7 +148,7 @@ class ProjectController {
   
     try {
       const project = await prisma.project.findUnique({
-        where: { id: projectId },
+        where: { id },
         include: {
           owner: {
             select: {
@@ -203,6 +218,7 @@ class ProjectController {
   
   static async getProjectPractices(req: Request, res: Response): Promise<void> {
     const { projectId } = req.params;
+    const id = projectId as string;
 
     if (!projectId) {
       res.status(400).json({ message: "Project ID is required" });
@@ -211,7 +227,7 @@ class ProjectController {
 
     try {
       const projectPractices = await prisma.targetPractice.findMany({
-        where: { projectId },
+        where: { projectId: id },
         include: {
           activities: true,
         },
@@ -231,6 +247,7 @@ class ProjectController {
 
   static async getPracticeActivities(req: Request, res: Response): Promise<void> {
     const { practiceId } = req.params;
+    const id = practiceId as string;
 
     if (!practiceId) {
       res.status(400).json({ message: "Practice ID is required" });
@@ -239,7 +256,7 @@ class ProjectController {
 
     try {
       const activities = await prisma.activity.findMany({
-        where: { targetPracticeId: practiceId },
+        where: { targetPracticeId: id },
       });
 
       if (!activities) {
@@ -256,6 +273,7 @@ class ProjectController {
 
   static async getCompanyProjects(req: Request, res: Response): Promise<void> {
     const { userId } = req.params;
+    const id = userId as string;
 
     if (!userId) {
       res.status(400).json({ message: "User ID is required" });
@@ -264,7 +282,7 @@ class ProjectController {
 
     try {
       const projects = await prisma.project.findMany({
-        where: { ownerId: userId },
+        where: { ownerId: id },
         include: {
           owner: {
             select: {

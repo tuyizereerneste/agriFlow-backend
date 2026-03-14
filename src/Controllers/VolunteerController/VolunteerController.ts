@@ -5,6 +5,12 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../config/db';
 
+interface AuthRequest extends Request {
+    user?: {
+        id: string;
+    };
+}
+
 interface Location {
     province: string;
     district: string;
@@ -17,17 +23,12 @@ class VolunteerController {
   static async createVolunteer(req: Request, res: Response): Promise<void> {
     const { name, email, password, locations } = req.body;
 
-    // Log the request body to ensure it contains the expected data
-    console.log('Request body:', req.body);
-
-    // Validate required fields
     if (!email) {
         res.status(400).json({ message: 'Email is required' });
         return;
     }
 
     try {
-        // Check if user already exists
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
             res.status(400).json({ message: 'User already exists' });
@@ -41,7 +42,6 @@ class VolunteerController {
         // Parse locations
         const locationsArray: Location[] = typeof locations === 'string' ? JSON.parse(locations) : locations || [];
 
-        // Create user and locations in a transaction
         const { user, createdLocations } = await prisma.$transaction(async (tx) => {
             const user = await tx.user.create({
                 data: {
@@ -113,10 +113,11 @@ class VolunteerController {
     
     static async getVolunteerById(req: Request, res: Response): Promise<void> {
         const { id } = req.params;
+        const userId = id as string;
     
         try {
             const volunteer = await prisma.user.findUnique({
-                where: { id },
+                where: { id: userId },
                 include: {
                     location: true,
                 },
@@ -136,9 +137,10 @@ class VolunteerController {
     
     static async deleteVolunteer(req: Request, res: Response): Promise<void> {
         const { id } = req.params;
+        const userId = id as string;
     
         try {
-            const existingUser = await prisma.user.findUnique({ where: { id } });
+            const existingUser = await prisma.user.findUnique({ where: { id: userId } });
     
             if (!existingUser || existingUser.role !== 'Volunteer') {
                 res.status(404).json({ message: 'Volunteer not found' });
@@ -146,8 +148,8 @@ class VolunteerController {
             }
     
             await prisma.$transaction([
-                prisma.location.deleteMany({ where: { userId: id } }),
-                prisma.user.delete({ where: { id } }),
+                prisma.location.deleteMany({ where: { userId: existingUser.id } }),
+                prisma.user.delete({ where: { id: existingUser.id } }),
             ]);
     
             res.status(200).json({ message: 'Volunteer deleted successfully' });
@@ -159,32 +161,30 @@ class VolunteerController {
 
     static async updateVolunteer(req: Request, res: Response): Promise<void> {
         const { id } = req.params;
+        const userId = id as string;
         const { name, email, password, locations } = req.body;
 
         try {
-            const existingUser = await prisma.user.findUnique({ where: { id } });
+            const existingUser = await prisma.user.findUnique({ where: { id: userId } });
 
             if (!existingUser || existingUser.role !== 'Volunteer') {
                 res.status(404).json({ message: 'Volunteer not found' });
                 return;
             }
 
-            // Update user data
             const updatedData: any = {};
             if (name) updatedData.name = name;
             if (email) updatedData.email = email;
 
             const updatedUser = await prisma.user.update({
-                where: { id },
+                where: { id: userId },
                 data: updatedData,
             });
 
-            // Update locations
             if (locations) {
                 const locationsArray: Location[] = typeof locations === 'string' ? JSON.parse(locations) : locations || [];
                 
-                // Delete existing locations
-                await prisma.location.deleteMany({ where: { userId: id } });
+                await prisma.location.deleteMany({ where: { userId: userId } });
 
                 // Create new locations
                 await Promise.all(
@@ -196,7 +196,7 @@ class VolunteerController {
                                 sector: loc.sector,
                                 cell: loc.cell,
                                 village: loc.village,
-                                userId: id,
+                                userId: userId,
                             },
                         })
                     )
@@ -212,6 +212,134 @@ class VolunteerController {
             res.status(500).json({ message: 'Failed to update volunteer' });
         }
     }
+
+    static async searchVolunteers(req: Request, res: Response): Promise<void> {
+        const { query } = req.query;
+
+        try {
+            const volunteers = await prisma.user.findMany({
+                where: {
+                    role: 'Volunteer',
+                    OR: [
+                        { name: { contains: query as string } },
+                        { email: { contains: query as string } },
+                    ],
+                },
+                include: {
+                    location: true,
+                },
+            });
+
+            res.status(200).json(volunteers);
+        } catch (error) {
+            console.error('Error searching volunteers:', error);
+            res.status(500).json({ message: 'Failed to search volunteers' });
+        }
+    }
+
+    static async assignVolunteerToProject(req: AuthRequest, res: Response): Promise<void> {
+        const { volunteerId, projectId } = req.body;
+      
+        if (!volunteerId || !projectId) {
+          res.status(400).json({ message: "Missing volunteerId or projectId" });
+          return;
+        }
+      
+        try {
+          const assignment = await prisma.volunteerProjectAssignment.create({
+            data: {
+              volunteerId: volunteerId,
+              projectId,
+            },
+          });
+      
+          res.status(201).json({
+            message: "Volunteer successfully assigned to project ✅",
+            data: assignment,
+          });
+        } catch (error) {
+          console.error("Error assigning volunteer:", error);
+          res.status(500).json({
+            message: "Error assigning volunteer",
+            error: error instanceof Error ? error.message : error,
+          });
+        }
+      }
+
+      static async getVolunteerProjects(req: AuthRequest, res: Response): Promise<void> {
+        const { volunteerId } = req.params;
+        const userId = volunteerId as string;
+      
+        if (!volunteerId) {
+          res.status(400).json({ message: "Volunteer ID is required" });
+          return;
+        }
+      
+        try {
+          const projects = await prisma.volunteerProjectAssignment.findMany({
+            where: { volunteerId: userId },
+            orderBy: { assignedAt: 'desc' },
+            include: {
+              project: true,
+            },
+          });
+      
+          res.status(200).json({ message: "Projects retrieved successfully", data: projects });
+        } catch (error) {
+          console.error("Error retrieving projects:", error);
+          res.status(500).json({ message: "Error retrieving projects", error });
+        }
+      }
+
+      static async getMyAssignedProjects(req: AuthRequest, res: Response): Promise<void> {
+        const volunteerId = req.user?.id;
+
+        if (!volunteerId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+            }
+      
+        try {
+          // Get project IDs assigned to this volunteer
+          const assignments = await prisma.volunteerProjectAssignment.findMany({
+            where: { volunteerId },
+            select: { projectId: true },
+          });
+      
+          const assignedProjectIds = assignments.map((a) => a.projectId);
+      
+          if (assignedProjectIds.length === 0) {
+            res.status(200).json({
+              message: "No projects assigned to you.",
+              data: [],
+            });
+            return;
+          }
+      
+          // Get full project details including target practices and activities
+          const projects = await prisma.project.findMany({
+            where: {
+              id: { in: assignedProjectIds },
+            },
+            include: {
+              targetPractices: {
+                include: {
+                  activities: true,
+                },
+              },
+            },
+          });
+      
+          res.status(200).json({
+            message: "Assigned projects retrieved successfully",
+            data: projects,
+          });
+        } catch (error) {
+          console.error("Error retrieving assigned projects", error);
+          res.status(500).json({ message: "Error retrieving assigned projects", error });
+        }
+      }
+      
 }    
     
 export default VolunteerController;

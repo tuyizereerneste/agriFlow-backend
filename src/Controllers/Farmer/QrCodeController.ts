@@ -5,10 +5,16 @@ import { prisma } from '../../config/db';
 class QrCodeController {
   static async generateQrCode(req: Request, res: Response): Promise<void> {
     const { farmerId } = req.params;
+    const id = farmerId as string;
+
+    if (!farmerId) {
+        res.status(400).json({ error: "Farmer ID is missing" });
+        return;
+    }
 
     try {
         const farmer = await prisma.farmer.findUnique({
-            where: { id: farmerId },
+            where: { id },
             select: {
                 id: true,
                 names: true,

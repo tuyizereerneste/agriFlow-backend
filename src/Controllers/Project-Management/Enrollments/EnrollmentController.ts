@@ -1,12 +1,39 @@
 import { Request, Response } from "express";
 import { prisma } from "../../../config/db";
 
-
+interface AuthRequest extends Request {
+  user?: {
+    role: string;
+    id: string;
+  };
+}
 class EnrollmentController {
-    static async enrollFarmerInProject(req: Request, res: Response): Promise<void> {
+    static async enrollFarmerInProject(req: AuthRequest, res: Response): Promise<void> {
+      const { farmerId, projectId, assignments } = req.body;
+      const userId = req.user?.id;
+
       try {
-        const { farmerId, projectId, assignments } = req.body;
+        if (!userId) {
+          res.status(401).json({ message: "Unauthorized" });
+          return;
+        }
+
+        if (req.user && req.user.role === 'Volunteer') {
+          const assignedProject = await prisma.volunteerProjectAssignment.findFirst({
+            where: {
+              volunteerId: userId,
+              projectId: projectId,
+            },
+          });
     
+          if (!assignedProject) {
+            res.status(403).json({
+              message: "You are not assigned to this project.",
+            });
+            return;
+          }
+        }
+
         if (!farmerId || !projectId || !Array.isArray(assignments)) {
           res.status(400).json({ message: "Missing or invalid data" });
           return;
@@ -72,6 +99,7 @@ class EnrollmentController {
           data: {
             farmerId,
             projectId,
+            createdById: userId,
           },
         });
     
@@ -98,8 +126,10 @@ class EnrollmentController {
       }
 }
 
-static async getEnrollmentByPractice(req: Request, res: Response): Promise<void> {
+static async getEnrollmentByPractice(req: AuthRequest, res: Response): Promise<void> {
   const { practiceId } = req.params;
+  const id = practiceId as string;
+  const userId = req.user?.id; 
 
   if (!practiceId) {
     res.status(400).json({ message: "Practice ID is required" });
@@ -108,7 +138,7 @@ static async getEnrollmentByPractice(req: Request, res: Response): Promise<void>
 
   try {
     const practice = await prisma.targetPractice.findUnique({
-      where: { id: practiceId },
+      where: { id },
       select: {
         id: true,
         title: true,
@@ -126,8 +156,17 @@ static async getEnrollmentByPractice(req: Request, res: Response): Promise<void>
       return;
     }
 
+    // ✅ Build role-based filtering
+    const enrollmentWhereCondition: any = {
+      projectId: practice.projectId,
+    };
+
+    if (req.user && req.user.role === 'Volunteer') {
+      enrollmentWhereCondition.createdById = userId;
+    }
+
     const enrollments = await prisma.projectEnrollment.findMany({
-      where: { projectId: practice.projectId },
+      where: enrollmentWhereCondition,
       include: {
         farmer: {
           select: {
@@ -140,12 +179,29 @@ static async getEnrollmentByPractice(req: Request, res: Response): Promise<void>
             location: true,
           },
         },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     });
-
+    
     const farmers = enrollments
-      .map((e) => e.farmer)
+      .map((e) => ({
+        ...e.farmer,
+        createdBy: e.createdBy
+          ? {
+              id: e.createdBy.id,
+              name: e.createdBy.name,
+              email: e.createdBy.email,
+            }
+          : null,
+      }))
       .sort((a, b) => a.names.localeCompare(b.names));
+    
 
     if (!farmers || farmers.length === 0) {
       res.status(404).json({ message: "No farmers found for this practice" });
@@ -153,7 +209,7 @@ static async getEnrollmentByPractice(req: Request, res: Response): Promise<void>
     }
 
     res.status(200).json({
-      message: "Farmers retrieved successfully",
+      message: "Farmers retrieved successfully ✅",
       data: {
         projectTitle: practice.project.title,
         practiceTitle: practice.title,
@@ -165,6 +221,7 @@ static async getEnrollmentByPractice(req: Request, res: Response): Promise<void>
     res.status(500).json({ message: "Error retrieving farmers", error });
   }
 }
+
 
 
 
