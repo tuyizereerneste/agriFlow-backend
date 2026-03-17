@@ -42,6 +42,7 @@ export const createFarmerSchema = Joi.object({
 
   lands: Joi.array().items(
     Joi.object({
+      upi: Joi.string().optional(),
       size: Joi.number().required(),
       ownership: Joi.string().valid("Owned", "Rented", "Borrowed", "Other").required(),
       crops: Joi.array().items(Joi.string()).required(),
@@ -102,6 +103,7 @@ export const updateFarmerSchema = Joi.object({
   lands: Joi.array()
     .items(
       Joi.object({
+        upi: Joi.string().optional(),
         size: Joi.number().optional(),
         latitude: Joi.number().optional(),
         longitude: Joi.number().optional(),

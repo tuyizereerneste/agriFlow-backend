@@ -117,6 +117,7 @@ class FarmerController {
                     // Create the land
                     const newLand = await tx.land.create({
                         data: {
+                            upi: land.upi,
                             size: land.size,
                             ownership: land.ownership,
                             crops: land.crops,

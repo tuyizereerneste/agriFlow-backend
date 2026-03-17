@@ -126,6 +126,7 @@ model LandLocation {
 
 model Land {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  upi       String?
   size       Float
   ownership  Ownership
   crops      String[]
