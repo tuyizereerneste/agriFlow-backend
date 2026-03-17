@@ -13,7 +13,6 @@ interface AuthRequest extends Request {
 }
 
 export const verifyToken = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-  console.log("verifyToken middleware called");
 
   const authHeader = req.header("Authorization");
 
@@ -27,7 +26,7 @@ export const verifyToken = async (req: AuthRequest, res: Response, next: NextFun
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
-    console.log("Token decoded:", decoded);
+
 
     const user = await prisma.user.findUnique({ where: { id: decoded.id } });
 
@@ -41,7 +40,6 @@ export const verifyToken = async (req: AuthRequest, res: Response, next: NextFun
     const role = user.role ?? undefined;
 
     req.user = { id: decoded.id, role, type: user.type };
-    console.log("User verified:", req.user);
     next();
   } catch (error) {
     console.error("Token verification failed:", error);
@@ -51,10 +49,10 @@ export const verifyToken = async (req: AuthRequest, res: Response, next: NextFun
 
 export const authorizeRole = (...roles: string[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    console.log("authorizeRoles middleware called. Allowed roles:", roles);
+  
 
     if (req.user && roles.includes(req.user.role ?? "")) {
-      console.log(`Role '${req.user.role}' authorized ✅`);
+    
       next();
     } else {
       console.error(
@@ -68,7 +66,6 @@ export const authorizeRole = (...roles: string[]) => {
 
 export const authorizeType = (type: string) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    console.log("authorizeType middleware called for type:", type);
 
     if (req.user && req.user.type === type) {
       console.log("Type authorized");
